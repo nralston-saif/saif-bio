@@ -16,7 +16,11 @@ const demoBrowserStub = {
 }
 
 export function createClient() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  // Demo unless explicitly opted into live mode (see isDemoMode in demo/mock-client.ts)
+  if (
+    process.env.NEXT_PUBLIC_USE_SUPABASE !== 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL
+  ) {
     return demoBrowserStub as unknown as ReturnType<typeof createBrowserClient<Database>>
   }
   return createBrowserClient<Database>(

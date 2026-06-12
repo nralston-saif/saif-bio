@@ -6,7 +6,9 @@ See CLAUDE.md for architecture details.
 
 ## Demo mode (current state)
 
-When `NEXT_PUBLIC_SUPABASE_URL` is **not** set, the app runs in **demo mode**: no login required, all pages served from in-memory sample data. Writes work (you can add contributions, vote on proposals, generate letters) but reset whenever the server restarts — on Vercel that means per serverless instance. Letter "sending" is simulated (no email goes out). This is the proof-of-concept mode; it turns off automatically the moment real Supabase env vars are configured.
+The app runs in **demo mode by default**: no login required, all pages served from in-memory sample data. Writes work (you can add contributions, vote on proposals, generate letters) but reset whenever the server restarts — on Vercel that means per serverless instance. Letter "sending" is simulated (no email goes out).
+
+Going live requires an explicit opt-in: set `NEXT_PUBLIC_USE_SUPABASE=true` *and* the Supabase env vars. The mere presence of Supabase vars is not enough — integrations like Vercel's Supabase marketplace inject them automatically, and that must not silently disable the demo.
 
 ## First-time setup
 

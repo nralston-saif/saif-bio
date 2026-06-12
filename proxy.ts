@@ -36,8 +36,11 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Demo mode (no Supabase project configured): open access, no auth
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  // Demo mode (default until NEXT_PUBLIC_USE_SUPABASE=true): open access, no auth
+  if (
+    process.env.NEXT_PUBLIC_USE_SUPABASE !== 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL
+  ) {
     if (request.nextUrl.pathname === '/login') {
       const url = request.nextUrl.clone()
       url.pathname = '/'

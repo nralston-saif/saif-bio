@@ -289,6 +289,15 @@ export function createDemoClient() {
   }
 }
 
+/**
+ * Demo mode is the default. Going live requires BOTH an explicit
+ * NEXT_PUBLIC_USE_SUPABASE=true opt-in and configured Supabase env vars -
+ * integrations (e.g. Vercel's) can inject Supabase vars automatically, so
+ * their mere presence must not flip the app to live mode.
+ */
 export function isDemoMode(): boolean {
-  return !process.env.NEXT_PUBLIC_SUPABASE_URL
+  return (
+    process.env.NEXT_PUBLIC_USE_SUPABASE !== 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL
+  )
 }
