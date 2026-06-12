@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isDemoMode } from '@/lib/supabase/demo/mock-client'
 import { requireMemberId, ActionError } from './helpers'
 import { buildLetterData, type LetterData } from '@/lib/pdf/letter-data'
 import { todayISO } from '@/lib/utils/dates'
@@ -116,6 +117,22 @@ export async function sendLetter(contributionId: string) {
     .download(letter.pdf_storage_path)
 
   if (downloadError || !pdfBlob) throw new ActionError('Could not load the generated PDF')
+
+  // Demo mode: record the send without emailing anyone
+  if (isDemoMode()) {
+    await supabase
+      .from('bio_acknowledgement_letters')
+      .update({
+        status: 'sent',
+        sent_to_email: contact.email,
+        sent_at: new Date().toISOString(),
+        resend_message_id: 'demo-mode-no-email-sent',
+      })
+      .eq('id', letter.id)
+    revalidatePath(`/contributions/${contributionId}`)
+    revalidatePath('/contributions')
+    return
+  }
 
   const fromEmail = settings.letter_from_email ?? process.env.LETTER_FROM_EMAIL
   if (!fromEmail) {

@@ -4,6 +4,10 @@ Internal operations system for SAIF Bio: contribution tracking with IRS-complian
 
 See CLAUDE.md for architecture details.
 
+## Demo mode (current state)
+
+When `NEXT_PUBLIC_SUPABASE_URL` is **not** set, the app runs in **demo mode**: no login required, all pages served from in-memory sample data. Writes work (you can add contributions, vote on proposals, generate letters) but reset whenever the server restarts — on Vercel that means per serverless instance. Letter "sending" is simulated (no email goes out). This is the proof-of-concept mode; it turns off automatically the moment real Supabase env vars are configured.
+
 ## First-time setup
 
 1. **Create the Supabase project** (not yet created — was deferred during initial build):

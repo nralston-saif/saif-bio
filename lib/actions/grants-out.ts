@@ -259,12 +259,26 @@ export async function markDisbursementPaid(disbursementId: string) {
 
   const { data: disbursement, error: loadError } = await supabase
     .from('bio_disbursements')
-    .select('*, bio_grants_out(id, purpose, grantee_contact_id, bio_contacts(display_name))')
+    .select('*')
     .eq('id', disbursementId)
     .single()
 
   if (loadError || !disbursement) throw new ActionError('Disbursement not found')
   if (disbursement.status === 'paid') throw new ActionError('Already marked paid')
+
+  const { data: award } = await supabase
+    .from('bio_grants_out')
+    .select('id, purpose, grantee_contact_id')
+    .eq('id', disbursement.grant_out_id)
+    .single()
+
+  const { data: granteeContact } = award
+    ? await supabase
+        .from('bio_contacts')
+        .select('display_name')
+        .eq('id', award.grantee_contact_id)
+        .maybeSingle()
+    : { data: null }
 
   const paidDate = todayISO()
 
@@ -282,16 +296,10 @@ export async function markDisbursementPaid(disbursementId: string) {
     .single()
 
   if (grantsPaidCategory) {
-    const award = disbursement.bio_grants_out as unknown as {
-      id: string
-      purpose: string | null
-      grantee_contact_id: string
-      bio_contacts: { display_name: string } | null
-    }
     await supabase.from('bio_expenses').insert({
       expense_date: paidDate,
       amount_cents: disbursement.amount_cents,
-      description: `Grant disbursement - ${award?.bio_contacts?.display_name ?? 'grantee'}${award?.purpose ? `: ${award.purpose}` : ''}`,
+      description: `Grant disbursement - ${granteeContact?.display_name ?? 'grantee'}${award?.purpose ? `: ${award.purpose}` : ''}`,
       category_id: grantsPaidCategory.id,
       vendor_contact_id: award?.grantee_contact_id ?? null,
       payment_method: disbursement.method,

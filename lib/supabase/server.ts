@@ -1,8 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from './types/database'
+import { createDemoClient, isDemoMode } from './demo/mock-client'
 
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient<Database>> {
+  // Demo mode: no Supabase project configured - serve in-memory sample data
+  if (isDemoMode()) {
+    return createDemoClient() as unknown as SupabaseClient<Database>
+  }
+
   const cookieStore = await cookies()
 
   return createServerClient<Database>(

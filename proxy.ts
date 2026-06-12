@@ -36,6 +36,19 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
+  // Demo mode (no Supabase project configured): open access, no auth
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (request.nextUrl.pathname === '/login') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+    const response = NextResponse.next()
+    response.headers.set('x-nonce', nonce)
+    response.headers.set('Content-Security-Policy-Report-Only', buildCSP(nonce))
+    return response
+  }
+
   const response = await updateSession(request, {
     publicPaths: ['/login', '/auth', '/_next', '/access-denied'],
     loginPath: '/login',
