@@ -1,0 +1,211 @@
+import ContactSelect from '@/components/ContactSelect'
+import MoneyInput from '@/components/MoneyInput'
+import { centsToDollarString } from '@/lib/utils/money'
+import { todayISO } from '@/lib/utils/dates'
+import { FUNCTIONAL_CLASS_LABELS, FUNCTIONAL_CLASS_ORDER } from './functional-class'
+import type { Expense, ExpenseCategory, ExpensePaymentMethod, ExpenseStatus } from '@/lib/supabase/types/database'
+
+interface ContactOption {
+  id: string
+  display_name: string
+}
+
+interface TeamMemberOption {
+  id: string
+  full_name: string
+}
+
+interface ExpenseFormFieldsProps {
+  categories: ExpenseCategory[]
+  vendors: ContactOption[]
+  teamMembers: TeamMemberOption[]
+  expense?: Expense
+}
+
+const PAYMENT_METHODS: { value: ExpensePaymentMethod; label: string }[] = [
+  { value: 'card', label: 'Card' },
+  { value: 'check', label: 'Check' },
+  { value: 'ach', label: 'ACH' },
+  { value: 'wire', label: 'Wire' },
+  { value: 'reimbursement', label: 'Reimbursement' },
+]
+
+const STATUSES: { value: ExpenseStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'reimbursed', label: 'Reimbursed' },
+]
+
+const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
+
+/** Shared field set for the new/edit expense forms. Render inside a <form>. */
+export default function ExpenseFormFields({
+  categories,
+  vendors,
+  teamMembers,
+  expense,
+}: ExpenseFormFieldsProps) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label htmlFor="expense_date" className={labelClass}>
+          Date
+        </label>
+        <input
+          id="expense_date"
+          type="date"
+          name="expense_date"
+          required
+          defaultValue={expense?.expense_date ?? todayISO()}
+          className="input"
+        />
+      </div>
+
+      <div>
+        <span className={labelClass}>Amount</span>
+        <MoneyInput
+          name="amount"
+          required
+          defaultValue={expense ? centsToDollarString(expense.amount_cents) : undefined}
+        />
+      </div>
+
+      <div className="sm:col-span-2">
+        <label htmlFor="description" className={labelClass}>
+          Description
+        </label>
+        <input
+          id="description"
+          type="text"
+          name="description"
+          required
+          defaultValue={expense?.description ?? ''}
+          className="input"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="category_id" className={labelClass}>
+          Category
+        </label>
+        <select
+          id="category_id"
+          name="category_id"
+          required
+          defaultValue={expense?.category_id ?? ''}
+          className="input"
+        >
+          <option value="" disabled>
+            Select a category…
+          </option>
+          {FUNCTIONAL_CLASS_ORDER.map((fc) => {
+            const group = categories.filter((c) => c.functional_class === fc)
+            if (group.length === 0) return null
+            return (
+              <optgroup key={fc} label={FUNCTIONAL_CLASS_LABELS[fc]}>
+                {group.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.is_active ? '' : ' (inactive)'}
+                  </option>
+                ))}
+              </optgroup>
+            )
+          })}
+        </select>
+      </div>
+
+      <div>
+        <span className={labelClass}>Vendor</span>
+        <ContactSelect
+          name="vendor_contact_id"
+          contacts={vendors}
+          defaultValue={expense?.vendor_contact_id}
+          placeholder="Select a vendor…"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="payment_method" className={labelClass}>
+          Payment method
+        </label>
+        <select
+          id="payment_method"
+          name="payment_method"
+          defaultValue={expense?.payment_method ?? ''}
+          className="input"
+        >
+          <option value="">Not specified</option>
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="status" className={labelClass}>
+          Status
+        </label>
+        <select
+          id="status"
+          name="status"
+          defaultValue={expense?.status ?? 'paid'}
+          className="input"
+        >
+          {STATUSES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="sm:col-span-2">
+        <label htmlFor="paid_by" className={labelClass}>
+          Paid personally by (reimbursement)
+        </label>
+        <select id="paid_by" name="paid_by" defaultValue={expense?.paid_by ?? ''} className="input">
+          <option value="">Paid from organization funds</option>
+          {teamMembers.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.full_name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Only set when a partner fronted the expense personally.
+        </p>
+      </div>
+
+      <div className="sm:col-span-2">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="is_1099_eligible"
+            defaultChecked={expense?.is_1099_eligible ?? false}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300"
+          />
+          <span>
+            <span className="block text-sm font-medium text-gray-700">1099 eligible</span>
+            <span className="block text-xs text-gray-400">Track for year-end 1099 reporting</span>
+          </span>
+        </label>
+      </div>
+
+      <div className="sm:col-span-2">
+        <label htmlFor="notes" className={labelClass}>
+          Notes
+        </label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows={3}
+          defaultValue={expense?.notes ?? ''}
+          className="input"
+        />
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,330 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { addDisbursement, addGranteeReport } from '@/lib/actions/grants-out'
+import PageHeader from '@/components/PageHeader'
+import StatusBadge from '@/components/StatusBadge'
+import SubmitButton from '@/components/SubmitButton'
+import MoneyInput from '@/components/MoneyInput'
+import AttachmentsPanel from '@/components/AttachmentsPanel'
+import { formatCents } from '@/lib/utils/money'
+import { formatDate, daysUntil } from '@/lib/utils/dates'
+import AwardStatusSelect from './AwardStatusSelect'
+import DisbursementActions from './DisbursementActions'
+import ReportActions from './ReportActions'
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs text-gray-500 uppercase tracking-wide">{label}</dt>
+      <dd className="text-sm text-gray-900 mt-0.5">{value}</dd>
+    </div>
+  )
+}
+
+export default async function AwardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const { data: award } = await supabase
+    .from('bio_grants_out')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!award) notFound()
+
+  const [
+    { data: grantee },
+    { data: proposal },
+    { data: disbursements },
+    { data: reports },
+    { data: attachments },
+  ] = await Promise.all([
+    supabase
+      .from('bio_contacts')
+      .select('id, display_name')
+      .eq('id', award.grantee_contact_id)
+      .maybeSingle(),
+    award.proposal_id
+      ? supabase
+          .from('bio_grant_proposals')
+          .select('id, title')
+          .eq('id', award.proposal_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('bio_disbursements')
+      .select('*')
+      .eq('grant_out_id', id)
+      .order('scheduled_date', { ascending: true }),
+    supabase
+      .from('bio_grantee_reports')
+      .select('*')
+      .eq('grant_out_id', id)
+      .order('due_date', { ascending: true }),
+    supabase
+      .from('bio_attachments')
+      .select('*')
+      .eq('entity_type', 'grant_out')
+      .eq('entity_id', id)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const paidTotal = (disbursements ?? [])
+    .filter((d) => d.status === 'paid')
+    .reduce((sum, d) => sum + d.amount_cents, 0)
+
+  const revalidatePath = `/grants-out/awards/${award.id}`
+
+  return (
+    <div>
+      <PageHeader
+        title={grantee?.display_name ?? 'Grant award'}
+        description={award.purpose ?? undefined}
+      />
+
+      <div className="space-y-6">
+        {/* Header card */}
+        <div className="card p-5">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <h3 className="font-medium text-gray-900">Award details</h3>
+            <div className="w-44">
+              <AwardStatusSelect awardId={award.id} status={award.status} />
+            </div>
+          </div>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DetailRow
+              label="Grantee"
+              value={
+                grantee ? (
+                  <Link href={`/contacts/${grantee.id}`} className="hover:underline">
+                    {grantee.display_name}
+                  </Link>
+                ) : (
+                  '—'
+                )
+              }
+            />
+            <DetailRow
+              label="Amount awarded"
+              value={<span className="tabular-nums">{formatCents(award.amount_awarded_cents)}</span>}
+            />
+            <DetailRow label="Award date" value={formatDate(award.award_date)} />
+            <DetailRow label="Restriction" value={award.restriction ?? '—'} />
+            <DetailRow label="Agreement signed" value={formatDate(award.agreement_signed_date)} />
+            {proposal && (
+              <DetailRow
+                label="From proposal"
+                value={
+                  <Link
+                    href={`/grants-out/proposals/${proposal.id}`}
+                    className="hover:underline"
+                  >
+                    {proposal.title}
+                  </Link>
+                }
+              />
+            )}
+          </dl>
+          {award.purpose && (
+            <div className="mt-4">
+              <dt className="text-xs text-gray-500 uppercase tracking-wide">Purpose</dt>
+              <p className="text-sm text-gray-700 mt-1">{award.purpose}</p>
+            </div>
+          )}
+          {award.notes && (
+            <div className="mt-4">
+              <dt className="text-xs text-gray-500 uppercase tracking-wide">Notes</dt>
+              <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{award.notes}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Disbursements */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium text-gray-900">Disbursements</h3>
+            <p className="text-sm text-gray-500">
+              Disbursed <span className="tabular-nums font-medium">{formatCents(paidTotal)}</span> of{' '}
+              <span className="tabular-nums font-medium">
+                {formatCents(award.amount_awarded_cents)}
+              </span>
+            </p>
+          </div>
+
+          {(disbursements ?? []).length === 0 ? (
+            <p className="text-sm text-gray-400 mb-4">No disbursements scheduled.</p>
+          ) : (
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                    <th className="py-2 pr-4 font-medium">Scheduled</th>
+                    <th className="py-2 pr-4 font-medium">Paid</th>
+                    <th className="py-2 pr-4 font-medium">Method</th>
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium text-right">Amount</th>
+                    <th className="py-2 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(disbursements ?? []).map((d) => (
+                    <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="py-2.5 pr-4 text-gray-600">{formatDate(d.scheduled_date)}</td>
+                      <td className="py-2.5 pr-4 text-gray-600">{formatDate(d.paid_date)}</td>
+                      <td className="py-2.5 pr-4 text-gray-600 uppercase text-xs">
+                        {d.method ?? '—'}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <StatusBadge status={d.status} />
+                      </td>
+                      <td className="py-2.5 pr-4 text-right tabular-nums">
+                        {formatCents(d.amount_cents)}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        {d.status === 'scheduled' && (
+                          <DisbursementActions disbursementId={d.id} awardId={award.id} />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <form
+            action={addDisbursement.bind(null, award.id)}
+            className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4"
+          >
+            <div className="w-36">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Amount *</label>
+              <MoneyInput name="amount" required />
+            </div>
+            <div>
+              <label
+                htmlFor="scheduled_date"
+                className="block text-xs font-medium text-gray-500 mb-1"
+              >
+                Scheduled date
+              </label>
+              <input id="scheduled_date" name="scheduled_date" type="date" className="input" />
+            </div>
+            <div>
+              <label htmlFor="method" className="block text-xs font-medium text-gray-500 mb-1">
+                Method
+              </label>
+              <select id="method" name="method" defaultValue="" className="input">
+                <option value="">—</option>
+                <option value="check">Check</option>
+                <option value="ach">ACH</option>
+                <option value="wire">Wire</option>
+              </select>
+            </div>
+            <SubmitButton pendingLabel="Adding…" className="btn btn-secondary">
+              Add disbursement
+            </SubmitButton>
+          </form>
+        </div>
+
+        {/* Grantee reports */}
+        <div className="card p-5">
+          <h3 className="font-medium text-gray-900 mb-3">Grantee reports</h3>
+
+          {(reports ?? []).length === 0 ? (
+            <p className="text-sm text-gray-400 mb-4">No reports required yet.</p>
+          ) : (
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                    <th className="py-2 pr-4 font-medium">Type</th>
+                    <th className="py-2 pr-4 font-medium">Due</th>
+                    <th className="py-2 pr-4 font-medium">Received</th>
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(reports ?? []).map((report) => {
+                    const isOverdue =
+                      daysUntil(report.due_date) < 0 &&
+                      report.status !== 'received' &&
+                      report.status !== 'waived'
+                    const isActionable =
+                      report.status === 'upcoming' || report.status === 'overdue'
+                    return (
+                      <tr key={report.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="py-2.5 pr-4 text-gray-600 capitalize">
+                          {report.report_type}
+                        </td>
+                        <td
+                          className={`py-2.5 pr-4 ${
+                            isOverdue ? 'text-red-600 font-medium' : 'text-gray-600'
+                          }`}
+                        >
+                          {formatDate(report.due_date)}
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-600">
+                          {formatDate(report.received_date)}
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <StatusBadge status={report.status} />
+                        </td>
+                        <td className="py-2.5 text-right">
+                          {isActionable && (
+                            <ReportActions reportId={report.id} awardId={award.id} />
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <form
+            action={addGranteeReport.bind(null, award.id)}
+            className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4"
+          >
+            <div>
+              <label htmlFor="report_type" className="block text-xs font-medium text-gray-500 mb-1">
+                Type *
+              </label>
+              <select id="report_type" name="report_type" required className="input">
+                <option value="progress">Progress</option>
+                <option value="final">Final</option>
+                <option value="financial">Financial</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="due_date" className="block text-xs font-medium text-gray-500 mb-1">
+                Due date *
+              </label>
+              <input id="due_date" name="due_date" type="date" required className="input" />
+            </div>
+            <div className="flex-1 min-w-44">
+              <label htmlFor="notes" className="block text-xs font-medium text-gray-500 mb-1">
+                Notes
+              </label>
+              <input id="notes" name="notes" type="text" className="input" />
+            </div>
+            <SubmitButton pendingLabel="Adding…" className="btn btn-secondary">
+              Add report
+            </SubmitButton>
+          </form>
+        </div>
+
+        <AttachmentsPanel
+          entityType="grant_out"
+          entityId={award.id}
+          attachments={attachments ?? []}
+          revalidatePath={revalidatePath}
+          title="Agreement & documents"
+        />
+      </div>
+    </div>
+  )
+}
