@@ -97,6 +97,21 @@ body {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
+/* DOCX preview styling (mammoth.convertToHtml output) */
+.docx-preview h1, .docx-preview h2, .docx-preview h3, .docx-preview h4 {
+  font-weight: 600;
+  margin: 1em 0 0.4em;
+}
+.docx-preview h1 { font-size: 1.25rem; }
+.docx-preview h2 { font-size: 1.1rem; }
+.docx-preview h3 { font-size: 1rem; }
+.docx-preview p { margin: 0.5em 0; }
+.docx-preview ul, .docx-preview ol { margin: 0.5em 0; padding-left: 1.5em; }
+.docx-preview li { margin: 0.25em 0; }
+.docx-preview table { border-collapse: collapse; margin: 0.5em 0; }
+.docx-preview td, .docx-preview th { border: 1px solid #e5e7eb; padding: 0.4em 0.6em; }
+.docx-preview strong { font-weight: 600; }
+
 /* Toast slide-in animation */
 @keyframes slide-in {
   from {

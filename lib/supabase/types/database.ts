@@ -208,6 +208,28 @@ export type ProposalComment = TimestampedRow & {
   body: string
 }
 
+export type ProposalMemo = TimestampedRow & {
+  id: string
+  proposal_id: string
+  q_candidate_background: string | null
+  q_values_alignment: string | null
+  q_cause_area: string | null
+  q_theory_of_change: string | null
+  q_output_product: string | null
+  q_amount_justification: string | null
+  q_counterfactual: string | null
+  q_success_outcomes: string | null
+  q_disappointing_outcomes: string | null
+  q_org_benefit: string | null
+  q_me_plan: string | null
+  q_risks: string | null
+  q_legal_reputational_risks: string | null
+  q_success_measurement: string | null
+  q_open_questions: string | null
+  started_by: string | null
+  last_edited_by: string | null
+}
+
 export type GrantOut = TimestampedRow & {
   id: string
   proposal_id: string | null
@@ -317,6 +339,7 @@ export type Database = {
       bio_grant_proposals: TableDef<GrantProposal, 'applicant_contact_id' | 'title'>
       bio_proposal_reviews: TableDef<ProposalReview, 'proposal_id' | 'reviewer_id'>
       bio_proposal_comments: TableDef<ProposalComment, 'proposal_id' | 'author_id' | 'body'>
+      bio_proposal_memos: TableDef<ProposalMemo, 'proposal_id'>
       bio_grants_out: TableDef<GrantOut, 'grantee_contact_id' | 'amount_awarded_cents'>
       bio_disbursements: TableDef<Disbursement, 'grant_out_id' | 'amount_cents'>
       bio_grantee_reports: TableDef<GranteeReport, 'grant_out_id' | 'report_type' | 'due_date'>

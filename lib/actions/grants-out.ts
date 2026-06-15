@@ -11,9 +11,11 @@ import type {
   GranteeReportType,
   GrantOutStatus,
   ProposalDecision,
+  ProposalMemo,
   ProposalStatus,
   Vote,
 } from '@/lib/supabase/types/database'
+import { MEMO_RUBRIC_FIELDS, isMemoComplete } from '@/lib/grants/memo'
 
 function parseOptionalCents(formData: FormData, key: string): number | null {
   const input = optionalString(formData, key)
@@ -51,6 +53,58 @@ export async function createProposal(formData: FormData) {
 
   revalidatePath('/grants-out')
   redirect(`/grants-out/proposals/${data.id}`)
+}
+
+const MAX_LETTER_BYTES = 10 * 1024 * 1024
+
+/**
+ * Same as createProposal but also attaches the uploaded proposal letter
+ * to the new proposal. When the Claude extraction lands later it will
+ * pre-fill the form fields from the same file before this action runs.
+ */
+export async function createProposalWithLetter(formData: FormData) {
+  const memberId = await requireMemberId()
+  const supabase = await createClient()
+
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) {
+    throw new ActionError('Please attach the proposal letter')
+  }
+  if (file.size > MAX_LETTER_BYTES) {
+    throw new ActionError('File exceeds 10 MB limit')
+  }
+
+  const { data: proposal, error } = await supabase
+    .from('bio_grant_proposals')
+    .insert(proposalFields(formData))
+    .select('id')
+    .single()
+  if (error) throw new ActionError(error.message)
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `grant_proposal/${proposal.id}/${crypto.randomUUID()}-${safeName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(storagePath, file, { contentType: file.type || undefined })
+  if (uploadError) throw new ActionError(`Upload failed: ${uploadError.message}`)
+
+  const { error: insertError } = await supabase.from('bio_attachments').insert({
+    entity_type: 'grant_proposal',
+    entity_id: proposal.id,
+    storage_path: storagePath,
+    file_name: file.name,
+    mime_type: file.type || null,
+    size_bytes: file.size,
+    uploaded_by: memberId,
+  })
+  if (insertError) {
+    await supabase.storage.from('documents').remove([storagePath])
+    throw new ActionError(`Failed to record attachment: ${insertError.message}`)
+  }
+
+  revalidatePath('/grants-out')
+  redirect(`/grants-out/proposals/${proposal.id}`)
 }
 
 export async function updateProposal(proposalId: string, formData: FormData) {
@@ -129,6 +183,70 @@ export async function addComment(proposalId: string, formData: FormData) {
   revalidatePath(`/grants-out/proposals/${proposalId}`)
 }
 
+// --- Evaluation memo (one per proposal, gates recordDecision) ---
+
+function memoFields(formData: FormData): Partial<ProposalMemo> {
+  const out: Partial<ProposalMemo> = {}
+  for (const [key] of MEMO_RUBRIC_FIELDS) {
+    out[key] = optionalString(formData, key)
+  }
+  return out
+}
+
+export async function startMemo(proposalId: string) {
+  const memberId = await requireMemberId()
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('bio_proposal_memos')
+    .select('id')
+    .eq('proposal_id', proposalId)
+    .maybeSingle()
+
+  if (existing) {
+    revalidatePath(`/grants-out/proposals/${proposalId}`)
+    return
+  }
+
+  const { error } = await supabase.from('bio_proposal_memos').insert({
+    proposal_id: proposalId,
+    started_by: memberId,
+    last_edited_by: memberId,
+  })
+
+  if (error) throw new ActionError(error.message)
+  revalidatePath(`/grants-out/proposals/${proposalId}`)
+}
+
+export async function updateMemo(proposalId: string, formData: FormData) {
+  const memberId = await requireMemberId()
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('bio_proposal_memos')
+    .select('id, started_by')
+    .eq('proposal_id', proposalId)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('bio_proposal_memos')
+      .update({ ...memoFields(formData), last_edited_by: memberId })
+      .eq('proposal_id', proposalId)
+    if (error) throw new ActionError(error.message)
+  } else {
+    const { error } = await supabase.from('bio_proposal_memos').insert({
+      proposal_id: proposalId,
+      ...memoFields(formData),
+      started_by: memberId,
+      last_edited_by: memberId,
+    })
+    if (error) throw new ActionError(error.message)
+  }
+
+  revalidatePath(`/grants-out/proposals/${proposalId}`)
+}
+
 // --- Decision -> award ---
 
 export async function recordDecision(proposalId: string, formData: FormData) {
@@ -145,6 +263,18 @@ export async function recordDecision(proposalId: string, formData: FormData) {
     .single()
 
   if (loadError || !proposal) throw new ActionError('Proposal not found')
+
+  const { data: memo } = await supabase
+    .from('bio_proposal_memos')
+    .select('*')
+    .eq('proposal_id', proposalId)
+    .maybeSingle()
+
+  if (!isMemoComplete(memo)) {
+    throw new ActionError(
+      'Evaluation memo must be fully filled in (all 15 rubric questions) before recording a decision'
+    )
+  }
 
   const { error } = await supabase
     .from('bio_grant_proposals')

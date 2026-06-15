@@ -11,7 +11,7 @@ interface MoneyInputProps {
 export default function MoneyInput({ name, defaultValue, required, placeholder }: MoneyInputProps) {
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-900 text-sm">$</span>
       <input
         type="text"
         inputMode="decimal"
@@ -20,7 +20,7 @@ export default function MoneyInput({ name, defaultValue, required, placeholder }
         required={required}
         placeholder={placeholder ?? '0.00'}
         pattern="[0-9,]*\.?[0-9]{0,2}"
-        className="input pl-7"
+        className="input pl-7!"
       />
     </div>
   )

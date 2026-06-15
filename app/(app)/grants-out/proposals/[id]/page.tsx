@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { addComment, setProposalStatus } from '@/lib/actions/grants-out'
+import { isMemoComplete, memoAnsweredCount } from '@/lib/grants/memo'
 import PageHeader from '@/components/PageHeader'
 import StatusBadge from '@/components/StatusBadge'
 import SubmitButton from '@/components/SubmitButton'
@@ -10,6 +11,7 @@ import { formatCents, centsToDollarString } from '@/lib/utils/money'
 import { formatDate } from '@/lib/utils/dates'
 import MyReviewForm from './MyReviewForm'
 import DecisionForm from './DecisionForm'
+import MemoCard from './MemoCard'
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime()
@@ -51,6 +53,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     { data: comments },
     { data: attachments },
     { data: award },
+    { data: memo },
     {
       data: { user },
     },
@@ -78,6 +81,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
       .eq('entity_id', id)
       .order('created_at', { ascending: false }),
     supabase.from('bio_grants_out').select('id').eq('proposal_id', id).maybeSingle(),
+    supabase.from('bio_proposal_memos').select('*').eq('proposal_id', id).maybeSingle(),
     supabase.auth.getUser(),
   ])
 
@@ -96,6 +100,9 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const myReview = currentMemberId ? (reviewsByMember.get(currentMemberId) ?? null) : null
 
   const isOpen = proposal.status === 'received' || proposal.status === 'in_review'
+  const memoComplete = isMemoComplete(memo)
+  const memoAnswered = memoAnsweredCount(memo)
+  const memoTotal = 15
 
   return (
     <div>
@@ -137,6 +144,15 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
               </div>
             )}
           </div>
+
+          <MemoCard
+            proposalId={proposal.id}
+            memo={memo}
+            startedByName={memo?.started_by ? (memberNames.get(memo.started_by) ?? null) : null}
+            lastEditedByName={
+              memo?.last_edited_by ? (memberNames.get(memo.last_edited_by) ?? null) : null
+            }
+          />
 
           {/* Discussion */}
           <div className="card p-5">
@@ -266,10 +282,19 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
           {proposal.status === 'in_review' && !proposal.decision && (
             <div className="card p-5">
               <h3 className="font-medium text-gray-900 mb-3">Decision</h3>
-              <DecisionForm
-                proposalId={proposal.id}
-                requestedAmount={centsToDollarString(proposal.amount_requested_cents)}
-              />
+              {memoComplete ? (
+                <DecisionForm
+                  proposalId={proposal.id}
+                  requestedAmount={centsToDollarString(proposal.amount_requested_cents)}
+                />
+              ) : (
+                <p className="text-sm text-gray-500">
+                  The evaluation memo must be fully filled in before a decision can be recorded.
+                  <span className="block text-xs text-gray-400 mt-1 tabular-nums">
+                    {memoAnswered}/{memoTotal} questions answered
+                  </span>
+                </p>
+              )}
             </div>
           )}
           {proposal.decision && (
