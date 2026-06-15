@@ -6,8 +6,7 @@ Internal operations system for SAIF Bio, a nonprofit run by the SAIF Ventures pa
 
 - **Contributions** — record donations (cash, stock, crypto, in-kind), generate and email IRS Pub 1771-compliant acknowledgement letters (PDF via @react-pdf/renderer, email via Resend)
 - **Expenses** — categorized with Form 990 functional classes (program / management & general / fundraising), receipt uploads, 1099 vendor tracking
-- **Grants out** (grantmaking) — proposal intake → partner review (score 1-5, yes/maybe/no vote, comments, COI recusal) → decision → award → disbursements (auto-create matching expense) → grantee report deadlines
-- **Grants in** (grantseeking) — funder pipeline, application deadlines, post-award deliverables
+- **Grants** (grantmaking) — proposal intake → partner review (score 1-5, yes/maybe/no vote, comments, COI recusal) → decision → award → disbursements (auto-create matching expense) → grantee report deadlines
 - **Reports** — 990-style functional expense summary, donor summaries, Schedule I-shaped grants paid, 1099 vendor totals, CSV exports
 
 ## Stack

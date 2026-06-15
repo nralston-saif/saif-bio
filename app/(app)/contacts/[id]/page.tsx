@@ -12,7 +12,6 @@ import type {
   Attachment,
   Contact,
   Contribution,
-  GrantIn,
   GrantOut,
   LetterStatus,
 } from '@/lib/supabase/types/database'
@@ -37,7 +36,7 @@ export default async function ContactDetailPage({
   const contact = contactRow as unknown as Contact | null
   if (!contact) notFound()
 
-  const [contributionsRes, grantsOutRes, grantsInRes, attachmentsRes] = await Promise.all([
+  const [contributionsRes, grantsOutRes, attachmentsRes] = await Promise.all([
     supabase
       .from('bio_contributions')
       .select('*')
@@ -49,11 +48,6 @@ export default async function ContactDetailPage({
       .eq('grantee_contact_id', id)
       .order('created_at', { ascending: false }),
     supabase
-      .from('bio_grants_in')
-      .select('*')
-      .eq('funder_contact_id', id)
-      .order('created_at', { ascending: false }),
-    supabase
       .from('bio_attachments')
       .select('*')
       .eq('entity_type', 'contact')
@@ -63,7 +57,6 @@ export default async function ContactDetailPage({
 
   const contributions = (contributionsRes.data ?? []) as unknown as Contribution[]
   const grantsOut = (grantsOutRes.data ?? []) as unknown as GrantOut[]
-  const grantsIn = (grantsInRes.data ?? []) as unknown as GrantIn[]
   const attachments = (attachmentsRes.data ?? []) as unknown as Attachment[]
 
   // Letter statuses for this contact's contributions
@@ -173,37 +166,6 @@ export default async function ContactDetailPage({
             </div>
           )}
 
-          {grantsIn.length > 0 && (
-            <div className="card overflow-x-auto">
-              <h2 className="font-medium text-gray-900 px-4 pt-4 pb-2">Grants from this funder</h2>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                    <th className="px-4 py-2 font-medium">Opportunity</th>
-                    <th className="px-4 py-2 font-medium text-right">Requested</th>
-                    <th className="px-4 py-2 font-medium text-right">Awarded</th>
-                    <th className="px-4 py-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grantsIn.map((g) => (
-                    <tr key={g.id} className="border-b border-gray-50 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-900">{g.opportunity_name}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-600">
-                        {formatCents(g.amount_requested_cents)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-900">
-                        {formatCents(g.amount_awarded_cents)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={g.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         <div className="space-y-6">

@@ -68,8 +68,6 @@ export default async function DashboardPage() {
     recentExpensesRes,
     scheduledDisbursementsRes,
     granteeReportsRes,
-    deadlineGrantsRes,
-    deliverablesRes,
   ] = await Promise.all([
     supabase
       .from('bio_team_members')
@@ -123,17 +121,6 @@ export default async function DashboardPage() {
       .select('id, grant_out_id, report_type, due_date')
       .in('status', ['upcoming', 'overdue'])
       .lte('due_date', horizon),
-    supabase
-      .from('bio_grants_in')
-      .select('id, opportunity_name, application_deadline')
-      .in('status', ['prospect', 'preparing'])
-      .not('application_deadline', 'is', null)
-      .lte('application_deadline', horizon),
-    supabase
-      .from('bio_grants_in_deliverables')
-      .select('id, grant_in_id, title, due_date')
-      .eq('status', 'upcoming')
-      .lte('due_date', horizon),
   ])
 
   const memberId = memberRes.data?.id ?? null
@@ -160,8 +147,6 @@ export default async function DashboardPage() {
   // Second wave: lookups for agenda items and recent activity
   const scheduledDisbursements = scheduledDisbursementsRes.data ?? []
   const granteeReports = granteeReportsRes.data ?? []
-  const deadlineGrants = deadlineGrantsRes.data ?? []
-  const deliverables = deliverablesRes.data ?? []
   const recentContributions = recentContributionsRes.data ?? []
 
   const grantOutIds = Array.from(
@@ -170,19 +155,11 @@ export default async function DashboardPage() {
       ...granteeReports.map((r) => r.grant_out_id),
     ])
   )
-  const deliverableGrantInIds = Array.from(new Set(deliverables.map((d) => d.grant_in_id)))
 
-  const [grantsOutRes, deliverableGrantsRes] = await Promise.all([
+  const grantsOutRes =
     grantOutIds.length > 0
-      ? supabase.from('bio_grants_out').select('id, grantee_contact_id').in('id', grantOutIds)
-      : Promise.resolve({ data: [] as { id: string; grantee_contact_id: string }[] }),
-    deliverableGrantInIds.length > 0
-      ? supabase
-          .from('bio_grants_in')
-          .select('id, opportunity_name')
-          .in('id', deliverableGrantInIds)
-      : Promise.resolve({ data: [] as { id: string; opportunity_name: string }[] }),
-  ])
+      ? await supabase.from('bio_grants_out').select('id, grantee_contact_id').in('id', grantOutIds)
+      : { data: [] as { id: string; grantee_contact_id: string }[] }
 
   const grantsOut = grantsOutRes.data ?? []
   const contactIds = Array.from(
@@ -201,9 +178,6 @@ export default async function DashboardPage() {
   const granteeNameByGrantOut = new Map(
     grantsOut.map((g) => [g.id, contactName.get(g.grantee_contact_id) ?? 'Unknown grantee'])
   )
-  const grantInName = new Map(
-    (deliverableGrantsRes.data ?? []).map((g) => [g.id, g.opportunity_name])
-  )
 
   const agenda: AgendaItem[] = [
     ...scheduledDisbursements
@@ -213,30 +187,14 @@ export default async function DashboardPage() {
         label: `Disbursement · ${formatCents(d.amount_cents)}`,
         detail: granteeNameByGrantOut.get(d.grant_out_id) ?? 'Unknown grantee',
         date: d.scheduled_date,
-        href: `/grants-out/${d.grant_out_id}`,
+        href: `/grants-out/awards/${d.grant_out_id}`,
       })),
     ...granteeReports.map((r) => ({
       key: `report-${r.id}`,
       label: `Grantee ${r.report_type} report due`,
       detail: granteeNameByGrantOut.get(r.grant_out_id) ?? 'Unknown grantee',
       date: r.due_date,
-      href: `/grants-out/${r.grant_out_id}`,
-    })),
-    ...deadlineGrants
-      .filter((g): g is typeof g & { application_deadline: string } => g.application_deadline !== null)
-      .map((g) => ({
-        key: `deadline-${g.id}`,
-        label: 'Application deadline',
-        detail: g.opportunity_name,
-        date: g.application_deadline,
-        href: `/grants-in/${g.id}`,
-      })),
-    ...deliverables.map((d) => ({
-      key: `deliverable-${d.id}`,
-      label: `Deliverable due · ${d.title}`,
-      detail: grantInName.get(d.grant_in_id) ?? 'Grant application',
-      date: d.due_date,
-      href: `/grants-in/${d.grant_in_id}`,
+      href: `/grants-out/awards/${r.grant_out_id}`,
     })),
   ].sort((a, b) => a.date.localeCompare(b.date))
 
@@ -244,7 +202,7 @@ export default async function DashboardPage() {
     { label: `FY${fy} contributions`, value: formatCents(fyContributionsTotal) },
     { label: `FY${fy} expenses`, value: formatCents(fyExpensesTotal) },
     { label: `FY${fy} grants paid`, value: formatCents(fyGrantsPaidTotal) },
-    { label: 'Active grants out', value: String(activeGrantsCount) },
+    { label: 'Active grants', value: String(activeGrantsCount) },
   ]
 
   return (

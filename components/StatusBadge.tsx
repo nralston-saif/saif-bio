@@ -15,7 +15,7 @@ const STYLES: Record<string, string> = {
   withdrawn: 'bg-gray-100 text-gray-500',
   approved: 'bg-green-100 text-green-800',
   declined: 'bg-red-100 text-red-700',
-  // grants out
+  // grants
   awarded: 'bg-green-100 text-green-800',
   active: 'bg-blue-100 text-blue-800',
   completed: 'bg-gray-100 text-gray-700',
@@ -27,7 +27,7 @@ const STYLES: Record<string, string> = {
   overdue: 'bg-red-100 text-red-700',
   waived: 'bg-gray-100 text-gray-500',
   submitted: 'bg-blue-100 text-blue-800',
-  // grants in
+  // application statuses
   prospect: 'bg-gray-100 text-gray-700',
   preparing: 'bg-yellow-100 text-yellow-800',
   // votes

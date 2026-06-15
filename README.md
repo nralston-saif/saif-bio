@@ -1,6 +1,6 @@
 # SAIF Bio
 
-Internal operations system for SAIF Bio: contribution tracking with IRS-compliant acknowledgement letters, expense tracking with Form 990 functional classes, grantmaking (proposal review → award → disbursement → grantee reports), grantseeking pipeline, and year-end reporting.
+Internal operations system for SAIF Bio: contribution tracking with IRS-compliant acknowledgement letters, expense tracking with Form 990 functional classes, grantmaking (proposal review → award → disbursement → grantee reports), and year-end reporting.
 
 See CLAUDE.md for architecture details.
 

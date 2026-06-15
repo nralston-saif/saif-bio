@@ -200,7 +200,7 @@ async function AwardsTab() {
   )
 }
 
-export default async function GrantsOutPage({
+export default async function GrantsPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>
@@ -216,7 +216,7 @@ export default async function GrantsOutPage({
   return (
     <div>
       <PageHeader
-        title="Grants out"
+        title="Grants"
         description="Proposals received and grants awarded by SAIF Bio."
         action={{ href: '/grants-out/new', label: 'New proposal' }}
       >
