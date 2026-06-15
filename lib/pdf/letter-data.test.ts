@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { buildLetterData } from './letter-data'
-import type { Contact, Contribution, Settings } from '@/lib/supabase/types/database'
+import type {
+  Contact,
+  Contribution,
+  Settings,
+  StockContributionDetail,
+} from '@/lib/supabase/types/database'
 
 const settings: Settings = {
   id: 1,
@@ -116,11 +121,53 @@ describe('buildLetterData (IRS Pub 1771 branches)', () => {
     )
 
     expect(data.amountFormatted).toBeNull()
-    expect(data.inKindDescription).toContain('one used laboratory centrifuge')
-    expect(data.inKindDescription).toContain('does not assign it a value')
+    expect(data.nonCashDescription).toContain('one used laboratory centrifuge')
+    expect(data.nonCashDescription).toContain('does not assign it a value')
     expect(data.goodsServicesStatement).toBe(
       'No goods or services were provided in exchange for this contribution.'
     )
+  })
+
+  it('stock gift describes the securities and never states internal FMV', () => {
+    const stockDetail: StockContributionDetail = {
+      contribution_id: 'k1',
+      security_name: 'Apple Inc. common stock',
+      ticker_symbol: 'AAPL',
+      cusip: '037833100',
+      shares: 10,
+      valuation_date: '2026-06-03',
+      fmv_per_share_cents: 19_785,
+      fmv_total_cents: 197_850,
+      valuation_source: 'broker_statement',
+      market_price_source: 'fmp',
+      brokerage_account: null,
+      transfer_received_date: '2026-06-03',
+      sale_date: null,
+      sale_gross_cents: null,
+      sale_fees_cents: null,
+      sale_net_cents: null,
+      notes: null,
+      created_at: '',
+      updated_at: '',
+    }
+
+    const data = buildLetterData(
+      makeContribution({
+        method: 'stock',
+        amount_cents: 197_850,
+      }),
+      contact,
+      settings,
+      '2026-06-12',
+      stockDetail
+    )
+
+    expect(data.amountFormatted).toBeNull()
+    expect(data.nonCashDescription).toContain('10 shares of Apple Inc. common stock')
+    expect(data.nonCashDescription).toContain('AAPL')
+    expect(data.nonCashDescription).toContain('does not assign it a value')
+    expect(JSON.stringify(data)).not.toContain('$1,978.50')
+    expect(JSON.stringify(data)).not.toContain('$197.85')
   })
 
   it('throws when EIN is missing', () => {

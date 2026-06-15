@@ -12,6 +12,9 @@ const demoBrowserStub = {
     async signInWithOtp() {
       return { data: {}, error: { message: 'Demo mode: authentication is disabled' } }
     },
+    async signInWithPassword() {
+      return { data: {}, error: { message: 'Demo mode: authentication is disabled' } }
+    },
   },
 }
 

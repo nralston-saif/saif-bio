@@ -1,4 +1,9 @@
-import type { Contact, Contribution, Settings } from '@/lib/supabase/types/database'
+import type {
+  Contact,
+  Contribution,
+  Settings,
+  StockContributionDetail,
+} from '@/lib/supabase/types/database'
 import { formatCents } from '@/lib/utils/money'
 import { formatDateLong } from '@/lib/utils/dates'
 
@@ -15,9 +20,9 @@ export interface LetterData {
   donorAddressLines: string[]
   letterDate: string
   receivedDate: string
-  /** e.g. "$1,500.00" for cash; null for in-kind */
+  /** e.g. "$1,500.00" for cash; null for non-cash gifts */
   amountFormatted: string | null
-  inKindDescription: string | null
+  nonCashDescription: string | null
   /** The Pub 1771-required paragraph about goods/services */
   goodsServicesStatement: string
   deductibilityStatement: string
@@ -32,11 +37,28 @@ const NO_GOODS_STATEMENT =
 const IN_KIND_NOTE =
   'As required by federal tax law, this letter describes the donated property but does not assign it a value. Donors are responsible for determining the fair market value of donated property.'
 
+function formatShares(shares: number): string {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 6,
+  }).format(shares)
+}
+
+function stockDescription(stockDetail: StockContributionDetail | null | undefined): string {
+  if (!stockDetail) {
+    throw new Error('Stock contribution details are required before generating letters.')
+  }
+
+  const ticker = stockDetail.ticker_symbol ? ` (${stockDetail.ticker_symbol})` : ''
+  const cusip = stockDetail.cusip ? `, CUSIP ${stockDetail.cusip}` : ''
+  return `${formatShares(stockDetail.shares)} shares of ${stockDetail.security_name}${ticker}${cusip}. ${IN_KIND_NOTE}`
+}
+
 export function buildLetterData(
   contribution: Contribution,
   contact: Contact,
   settings: Settings,
-  letterDate: string
+  letterDate: string,
+  stockDetail?: StockContributionDetail | null
 ): LetterData {
   if (!settings.ein) {
     throw new Error('Organization EIN is not set. Add it in Settings before generating letters.')
@@ -56,7 +78,13 @@ export function buildLetterData(
     goodsServicesStatement = NO_GOODS_STATEMENT
   }
 
-  const isInKind = contribution.method === 'in_kind'
+  const isNonCash = contribution.method === 'in_kind' || contribution.method === 'stock'
+  const nonCashDescription =
+    contribution.method === 'stock'
+      ? stockDescription(stockDetail)
+      : contribution.method === 'in_kind'
+        ? `${contribution.in_kind_description} ${IN_KIND_NOTE}`
+        : null
 
   const orgAddressLines = [
     settings.address_line1,
@@ -78,10 +106,8 @@ export function buildLetterData(
     donorAddressLines,
     letterDate: formatDateLong(letterDate),
     receivedDate: formatDateLong(contribution.received_date),
-    amountFormatted: isInKind ? null : formatCents(contribution.amount_cents),
-    inKindDescription: isInKind
-      ? `${contribution.in_kind_description} ${IN_KIND_NOTE}`
-      : null,
+    amountFormatted: isNonCash ? null : formatCents(contribution.amount_cents),
+    nonCashDescription,
     goodsServicesStatement,
     deductibilityStatement:
       `${settings.org_legal_name} is a tax-exempt organization described in Section 501(c)(3) of the Internal Revenue Code ` +

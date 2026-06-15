@@ -21,6 +21,7 @@ export type ContributionMethod =
   | 'in_kind'
 export type Restriction = 'unrestricted' | 'donor_restricted'
 export type LetterStatus = 'draft' | 'generated' | 'sent'
+export type StockValuationSource = 'manual' | 'api_estimate' | 'broker_statement'
 export type FunctionalClass = 'program' | 'management_general' | 'fundraising'
 export type ExpensePaymentMethod = 'card' | 'check' | 'ach' | 'wire' | 'reimbursement'
 export type ExpenseStatus = 'pending' | 'paid' | 'reimbursed'
@@ -115,6 +116,40 @@ export type AcknowledgementLetter = TimestampedRow & {
   sent_at: string | null
   resend_message_id: string | null
   generated_by: string | null
+}
+
+export type SecurityPrice = TimestampedRow & {
+  id: string
+  symbol: string
+  price_date: string
+  open_cents: number | null
+  high_cents: number | null
+  low_cents: number | null
+  close_cents: number
+  adjusted_close_cents: number | null
+  volume: number | null
+  source: string
+  fetched_at: string | null
+}
+
+export type StockContributionDetail = TimestampedRow & {
+  contribution_id: string
+  security_name: string
+  ticker_symbol: string | null
+  cusip: string | null
+  shares: number
+  valuation_date: string
+  fmv_per_share_cents: number | null
+  fmv_total_cents: number
+  valuation_source: StockValuationSource
+  market_price_source: string | null
+  brokerage_account: string | null
+  transfer_received_date: string | null
+  sale_date: string | null
+  sale_gross_cents: number | null
+  sale_fees_cents: number | null
+  sale_net_cents: number | null
+  notes: string | null
 }
 
 export type ExpenseCategory = TimestampedRow & {
@@ -275,6 +310,8 @@ export type Database = {
       bio_contacts: TableDef<Contact, 'contact_type' | 'display_name'>
       bio_contributions: TableDef<Contribution, 'contact_id' | 'received_date' | 'method'>
       bio_acknowledgement_letters: TableDef<AcknowledgementLetter, 'contribution_id'>
+      bio_security_prices: TableDef<SecurityPrice, 'symbol' | 'price_date' | 'close_cents' | 'source'>
+      bio_stock_contribution_details: TableDef<StockContributionDetail, 'contribution_id' | 'security_name' | 'shares' | 'valuation_date' | 'fmv_total_cents'>
       bio_expense_categories: TableDef<ExpenseCategory, 'name' | 'functional_class'>
       bio_expenses: TableDef<Expense, 'expense_date' | 'amount_cents' | 'description' | 'category_id'>
       bio_grant_proposals: TableDef<GrantProposal, 'applicant_contact_id' | 'title'>

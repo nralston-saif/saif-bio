@@ -28,6 +28,7 @@ const ids = {
   contribution1: '00000000-0000-0000-0000-000000000301',
   contribution2: '00000000-0000-0000-0000-000000000302',
   contribution3: '00000000-0000-0000-0000-000000000303',
+  contribution4: '00000000-0000-0000-0000-000000000304',
   catGrants: '00000000-0000-0000-0000-000000000401',
   catAccounting: '00000000-0000-0000-0000-000000000402',
   catSoftware: '00000000-0000-0000-0000-000000000403',
@@ -84,8 +85,15 @@ function buildSeedTables(): Record<string, Row[]> {
       { id: ids.contribution1, contact_id: ids.donorJane, amount_cents: 250_000, received_date: '2026-03-15', method: 'wire', in_kind_description: null, restriction: 'unrestricted', restriction_purpose: null, quid_pro_quo: false, goods_services_description: null, goods_services_value_cents: null, check_number: null, notes: null, entered_by: ids.nick, ...ts('2026-03-15') },
       { id: ids.contribution2, contact_id: ids.donorJane, amount_cents: 50_000, received_date: '2026-05-01', method: 'check', in_kind_description: null, restriction: 'unrestricted', restriction_purpose: null, quid_pro_quo: true, goods_services_description: 'two fundraising dinner tickets', goods_services_value_cents: 15_000, check_number: '1042', notes: null, entered_by: ids.mike, ...ts('2026-05-01') },
       { id: ids.contribution3, contact_id: ids.donorAcmeFdn, amount_cents: 5_000_000, received_date: '2026-04-20', method: 'ach', in_kind_description: null, restriction: 'donor_restricted', restriction_purpose: 'Biosafety training programs', quid_pro_quo: false, goods_services_description: null, goods_services_value_cents: null, check_number: null, notes: null, entered_by: ids.nick, ...ts('2026-04-20') },
+      { id: ids.contribution4, contact_id: ids.donorJane, amount_cents: 197_850, received_date: '2026-06-03', method: 'stock', in_kind_description: null, restriction: 'unrestricted', restriction_purpose: null, quid_pro_quo: false, goods_services_description: null, goods_services_value_cents: null, check_number: null, notes: 'Demo stock gift with internal FMV from broker statement.', entered_by: ids.nick, ...ts('2026-06-03') },
     ],
     bio_acknowledgement_letters: [],
+    bio_security_prices: [
+      { id: '00000000-0000-0000-0000-000000000d01', symbol: 'AAPL', price_date: '2026-06-03', open_cents: null, high_cents: null, low_cents: null, close_cents: 19_785, adjusted_close_cents: null, volume: 52_000_000, source: 'fmp', fetched_at: '2026-06-03T21:00:00Z', ...ts('2026-06-03') },
+    ],
+    bio_stock_contribution_details: [
+      { contribution_id: ids.contribution4, security_name: 'Apple Inc. common stock', ticker_symbol: 'AAPL', cusip: '037833100', shares: 10, valuation_date: '2026-06-03', fmv_per_share_cents: 19_785, fmv_total_cents: 197_850, valuation_source: 'broker_statement', market_price_source: 'fmp', brokerage_account: 'Schwab demo brokerage', transfer_received_date: '2026-06-03', sale_date: null, sale_gross_cents: null, sale_fees_cents: null, sale_net_cents: null, notes: 'Broker statement attached in a real workflow.', ...ts('2026-06-03') },
+    ],
     bio_expense_categories: [
       { id: ids.catGrants, name: 'Grants paid', functional_class: 'program', form_990_line: 'Part IX line 1', is_active: true, ...ts('2026-01-05') },
       { id: ids.catAccounting, name: 'Accounting fees', functional_class: 'management_general', form_990_line: 'Part IX line 11c', is_active: true, ...ts('2026-01-05') },

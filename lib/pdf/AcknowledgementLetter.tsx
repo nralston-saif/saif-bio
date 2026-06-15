@@ -82,8 +82,9 @@ export default function AcknowledgementLetter({ data }: { data: LetterData }) {
             </Text>
           ) : (
             <Text>
-              On behalf of {data.orgLegalName}, thank you for your generous in-kind contribution,
-              received on {data.receivedDate}, of the following property: {data.inKindDescription}
+              On behalf of {data.orgLegalName}, thank you for your generous non-cash contribution,
+              received on {data.receivedDate}, of the following property:{' '}
+              {data.nonCashDescription}
             </Text>
           )}
         </View>

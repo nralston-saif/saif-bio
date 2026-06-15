@@ -97,7 +97,7 @@ export async function GET(
     case 'contributions': {
       const { data: contributionsData } = await supabase
         .from('bio_contributions')
-        .select('received_date, contact_id, amount_cents, method, restriction, quid_pro_quo')
+        .select('id, received_date, contact_id, amount_cents, method, restriction, quid_pro_quo')
         .gte('received_date', start)
         .lt('received_date', end)
         .order('received_date')
@@ -110,16 +110,56 @@ export async function GET(
           : { data: [] as { id: string; display_name: string }[] }
       const donorName = new Map((donors ?? []).map((d) => [d.id, d.display_name]))
 
+      const stockContributionIds = contributions
+        .filter((c) => c.method === 'stock')
+        .map((c) => c.id)
+      const { data: stockDetails } =
+        stockContributionIds.length > 0
+          ? await supabase
+              .from('bio_stock_contribution_details')
+              .select('*')
+              .in('contribution_id', stockContributionIds)
+          : { data: [] }
+      const stockByContribution = new Map(
+        (stockDetails ?? []).map((detail) => [detail.contribution_id, detail])
+      )
+
       csv = toCsv(
-        ['date', 'donor', 'amount', 'method', 'restriction', 'quid_pro_quo'],
-        contributions.map((c) => [
-          c.received_date,
-          donorName.get(c.contact_id) ?? '',
-          dollars(c.amount_cents),
-          c.method,
-          c.restriction,
-          c.quid_pro_quo ? 'yes' : 'no',
-        ])
+        [
+          'date',
+          'donor',
+          'amount_or_internal_fmv',
+          'method',
+          'restriction',
+          'quid_pro_quo',
+          'security',
+          'ticker',
+          'shares',
+          'valuation_date',
+          'fmv_per_share',
+          'valuation_source',
+          'sale_date',
+          'sale_net',
+        ],
+        contributions.map((c) => {
+          const stock = stockByContribution.get(c.id)
+          return [
+            c.received_date,
+            donorName.get(c.contact_id) ?? '',
+            dollars(c.amount_cents),
+            c.method,
+            c.restriction,
+            c.quid_pro_quo ? 'yes' : 'no',
+            stock?.security_name ?? '',
+            stock?.ticker_symbol ?? '',
+            stock?.shares ?? '',
+            stock?.valuation_date ?? '',
+            dollars(stock?.fmv_per_share_cents),
+            stock?.valuation_source ?? '',
+            stock?.sale_date ?? '',
+            dollars(stock?.sale_net_cents),
+          ]
+        })
       )
       break
     }

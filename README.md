@@ -1,6 +1,6 @@
 # SAIF Bio
 
-Internal operations system for SAIF Bio: contribution tracking with IRS-compliant acknowledgement letters, expense tracking with Form 990 functional classes, grantmaking (proposal review → award → disbursement → grantee reports), and year-end reporting.
+Internal operations system for SAIF Bio: contribution tracking with IRS-compliant acknowledgement letters, stock gift valuation tracking, expense tracking with Form 990 functional classes, grantmaking (proposal review → award → disbursement → grantee reports), and year-end reporting.
 
 See CLAUDE.md for architecture details.
 
@@ -22,9 +22,11 @@ Going live requires an explicit opt-in: set `NEXT_PUBLIC_USE_SUPABASE=true` *and
 
 3. **Resend** (for emailing letters): create an API key at resend.com, verify your sending domain, set `RESEND_API_KEY` and `LETTER_FROM_EMAIL`.
 
-4. **Org settings**: run the app, go to `/settings`, and fill in the legal name, EIN, address, and letter signatory. Letters cannot be generated until EIN and signatory are set.
+4. **Optional stock price data**: create a Financial Modeling Prep API key and set `FMP_API_KEY`. Stock contributions can still be recorded manually without this key.
 
-5. **Optional sample data**: `npx tsx scripts/seed.ts` (with env vars loaded).
+5. **Org settings**: run the app, go to `/settings`, and fill in the legal name, EIN, address, and letter signatory. Letters cannot be generated until EIN and signatory are set.
+
+6. **Optional sample data**: `npx tsx scripts/seed.ts` (with env vars loaded).
 
 ## Commands
 

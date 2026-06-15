@@ -10,6 +10,7 @@ import type {
   Attachment,
   Contact,
   Contribution,
+  StockContributionDetail,
 } from '@/lib/supabase/types/database'
 import { METHOD_LABELS } from '../methods'
 import ContributionForm from '../new/ContributionForm'
@@ -22,6 +23,12 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
       <dd className="text-sm text-gray-900 text-right">{children}</dd>
     </div>
   )
+}
+
+function formatShares(shares: number): string {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 6,
+  }).format(shares)
 }
 
 export default async function ContributionDetailPage({
@@ -42,7 +49,7 @@ export default async function ContributionDetailPage({
   const contribution = contributionRow as unknown as Contribution | null
   if (!contribution) notFound()
 
-  const [contactRes, letterRes, attachmentsRes, contactsRes] = await Promise.all([
+  const [contactRes, letterRes, attachmentsRes, contactsRes, stockDetailRes] = await Promise.all([
       supabase
         .from('bio_contacts')
         .select('*')
@@ -60,12 +67,18 @@ export default async function ContributionDetailPage({
         .eq('entity_id', id)
         .order('created_at', { ascending: false }),
       supabase.from('bio_contacts').select('id, display_name').order('display_name'),
+      supabase
+        .from('bio_stock_contribution_details')
+        .select('*')
+        .eq('contribution_id', id)
+        .maybeSingle(),
     ])
 
   const contact = contactRes.data as unknown as Contact | null
   const letter = letterRes.data as unknown as AcknowledgementLetter | null
   const attachments = (attachmentsRes.data ?? []) as unknown as Attachment[]
   const contacts = (contactsRes.data ?? []) as unknown as { id: string; display_name: string }[]
+  const stockDetail = stockDetailRes.data as unknown as StockContributionDetail | null
 
   const letterSent = letter?.status === 'sent'
 
@@ -104,6 +117,39 @@ export default async function ContributionDetailPage({
                   {contribution.in_kind_description ?? '—'}
                 </DetailRow>
               )}
+              {contribution.method === 'stock' && stockDetail && (
+                <>
+                  <DetailRow label="Security">{stockDetail.security_name}</DetailRow>
+                  <DetailRow label="Ticker">{stockDetail.ticker_symbol ?? '—'}</DetailRow>
+                  <DetailRow label="Shares">{formatShares(stockDetail.shares)}</DetailRow>
+                  <DetailRow label="Valuation date">
+                    {formatDate(stockDetail.valuation_date)}
+                  </DetailRow>
+                  <DetailRow label="FMV per share">
+                    <span className="tabular-nums">
+                      {formatCents(stockDetail.fmv_per_share_cents)}
+                    </span>
+                  </DetailRow>
+                  <DetailRow label="Valuation source">
+                    {stockDetail.valuation_source.replace(/_/g, ' ')}
+                  </DetailRow>
+                  {stockDetail.market_price_source && (
+                    <DetailRow label="Market data source">
+                      {stockDetail.market_price_source.toUpperCase()}
+                    </DetailRow>
+                  )}
+                  {stockDetail.sale_date && (
+                    <>
+                      <DetailRow label="Sale date">{formatDate(stockDetail.sale_date)}</DetailRow>
+                      <DetailRow label="Net sale proceeds">
+                        <span className="tabular-nums">
+                          {formatCents(stockDetail.sale_net_cents)}
+                        </span>
+                      </DetailRow>
+                    </>
+                  )}
+                </>
+              )}
               <DetailRow label="Restriction">
                 {contribution.restriction === 'donor_restricted' ? 'Donor restricted' : 'Unrestricted'}
               </DetailRow>
@@ -139,7 +185,11 @@ export default async function ContributionDetailPage({
           ) : (
             <div>
               <h2 className="font-medium text-gray-900 mb-3">Edit contribution</h2>
-              <ContributionForm contacts={contacts} contribution={contribution} />
+              <ContributionForm
+                contacts={contacts}
+                contribution={contribution}
+                stockDetail={stockDetail}
+              />
             </div>
           )}
         </div>

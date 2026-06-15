@@ -126,9 +126,13 @@ export default async function ReportsPage({
   const expensesGrandTotal = expenses.reduce((sum, e) => sum + e.amount_cents, 0)
 
   // --- Contributions summary ---
-  const cashGifts = contributions.filter((c) => c.method !== 'in_kind' && c.amount_cents !== null)
+  const cashGifts = contributions.filter(
+    (c) => c.method !== 'in_kind' && c.method !== 'stock' && c.amount_cents !== null
+  )
+  const stockGifts = contributions.filter((c) => c.method === 'stock')
   const inKindCount = contributions.filter((c) => c.method === 'in_kind').length
   const totalCash = cashGifts.reduce((sum, c) => sum + (c.amount_cents ?? 0), 0)
+  const stockFmv = stockGifts.reduce((sum, c) => sum + (c.amount_cents ?? 0), 0)
   const restrictedCash = cashGifts
     .filter((c) => c.restriction === 'donor_restricted')
     .reduce((sum, c) => sum + (c.amount_cents ?? 0), 0)
@@ -259,7 +263,7 @@ export default async function ReportsPage({
         {/* Contributions */}
         <div className="card p-6">
           <SectionHeader title="Contributions" csvHref={`/api/exports/contributions?fy=${fy}`} />
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Total cash</p>
               <p className="text-lg font-semibold tabular-nums">{formatCents(totalCash)}</p>
@@ -267,6 +271,10 @@ export default async function ReportsPage({
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Cash gifts</p>
               <p className="text-lg font-semibold tabular-nums">{cashGifts.length}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Stock FMV</p>
+              <p className="text-lg font-semibold tabular-nums">{formatCents(stockFmv)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">In-kind gifts</p>

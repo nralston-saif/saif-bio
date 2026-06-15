@@ -44,18 +44,27 @@ async function loadLetterInputs(contributionId: string) {
     .single()
   if (!settings) throw new ActionError('Settings not found')
 
-  return { contribution, contact, settings }
+  const { data: stockDetail } =
+    contribution.method === 'stock'
+      ? await supabase
+          .from('bio_stock_contribution_details')
+          .select('*')
+          .eq('contribution_id', contributionId)
+          .maybeSingle()
+      : { data: null }
+
+  return { contribution, contact, settings, stockDetail }
 }
 
 export async function generateLetter(contributionId: string) {
   const memberId = await requireMemberId()
   const supabase = await createClient()
 
-  const { contribution, contact, settings } = await loadLetterInputs(contributionId)
+  const { contribution, contact, settings, stockDetail } = await loadLetterInputs(contributionId)
 
   let letterData: LetterData
   try {
-    letterData = buildLetterData(contribution, contact, settings, todayISO())
+    letterData = buildLetterData(contribution, contact, settings, todayISO(), stockDetail)
   } catch (err) {
     throw new ActionError(err instanceof Error ? err.message : 'Could not build letter')
   }
