@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
+import { storeAttachmentFile } from '@/lib/storage/store-file'
 import { parseDollarsToCents } from '@/lib/utils/money'
 import type { ExpensePaymentMethod, ExpenseStatus, FunctionalClass } from '@/lib/supabase/types/database'
 
@@ -36,6 +37,42 @@ export async function createExpense(formData: FormData) {
     .single()
 
   if (error) throw new ActionError(error.message)
+
+  revalidatePath('/expenses')
+  redirect(`/expenses/${data.id}`)
+}
+
+/**
+ * Create an expense from a reviewed invoice and attach the source PDF as its
+ * receipt. The expense fields come from the (pre-filled, partner-confirmed)
+ * form; `invoice_file` is the original PDF.
+ */
+export async function createExpenseFromInvoice(formData: FormData) {
+  const memberId = await requireMemberId()
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('bio_expenses')
+    .insert({ ...expenseFields(formData), entered_by: memberId })
+    .select('id')
+    .single()
+
+  if (error) throw new ActionError(error.message)
+
+  const file = formData.get('invoice_file')
+  if (file instanceof File && file.size > 0) {
+    try {
+      await storeAttachmentFile(supabase, {
+        entityType: 'expense',
+        entityId: data.id,
+        file,
+        memberId,
+      })
+    } catch {
+      // The expense is saved; if the receipt failed to attach, the partner can
+      // re-upload it from the expense's Attachments panel. Don't fail the create.
+    }
+  }
 
   revalidatePath('/expenses')
   redirect(`/expenses/${data.id}`)

@@ -3,9 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, ActionError } from './helpers'
+import { storeAttachmentFile } from '@/lib/storage/store-file'
 import type { AttachmentEntityType } from '@/lib/supabase/types/database'
-
-const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 export async function uploadAttachment(formData: FormData) {
   const memberId = await requireMemberId()
@@ -15,38 +14,9 @@ export async function uploadAttachment(formData: FormData) {
   const entityId = requiredString(formData, 'entity_id')
   const revalidate = requiredString(formData, 'revalidate_path')
   const file = formData.get('file')
+  if (!(file instanceof File)) throw new ActionError('No file provided')
 
-  if (!(file instanceof File) || file.size === 0) {
-    throw new ActionError('No file provided')
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    throw new ActionError('File exceeds 10 MB limit')
-  }
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${entityType}/${entityId}/${crypto.randomUUID()}-${safeName}`
-
-  const { error: uploadError } = await supabase.storage
-    .from('documents')
-    .upload(storagePath, file, { contentType: file.type || undefined })
-
-  if (uploadError) throw new ActionError(`Upload failed: ${uploadError.message}`)
-
-  const { error: insertError } = await supabase.from('bio_attachments').insert({
-    entity_type: entityType,
-    entity_id: entityId,
-    storage_path: storagePath,
-    file_name: file.name,
-    mime_type: file.type || null,
-    size_bytes: file.size,
-    uploaded_by: memberId,
-  })
-
-  if (insertError) {
-    await supabase.storage.from('documents').remove([storagePath])
-    throw new ActionError(`Failed to record attachment: ${insertError.message}`)
-  }
-
+  await storeAttachmentFile(supabase, { entityType, entityId, file, memberId })
   revalidatePath(revalidate)
 }
 

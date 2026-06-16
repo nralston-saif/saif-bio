@@ -20,7 +20,7 @@ interface ExpenseFormFieldsProps {
   categories: ExpenseCategory[]
   vendors: ContactOption[]
   teamMembers: TeamMemberOption[]
-  expense?: Expense
+  expense?: Partial<Expense>
 }
 
 const PAYMENT_METHODS: { value: ExpensePaymentMethod; label: string }[] = [

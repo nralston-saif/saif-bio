@@ -52,6 +52,9 @@ export default async function ExpensesPage({
         description="Operating expenses tracked for Form 990 functional reporting."
         action={{ href: '/expenses/new', label: 'New expense' }}
       >
+        <Link href="/expenses/import" className="btn btn-secondary">
+          Import invoice
+        </Link>
         <Link href="/expenses/categories" className="btn btn-secondary">
           Manage categories
         </Link>
