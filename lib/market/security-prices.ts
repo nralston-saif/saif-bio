@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, SecurityPrice } from '@/lib/supabase/types/database'
+import type {
+  Database,
+  SecurityPrice,
+  StockContributionDetail,
+} from '@/lib/supabase/types/database'
 
 export const FMP_SOURCE = 'fmp'
 
@@ -139,4 +143,140 @@ export async function getOrFetchDailySecurityPrice(
   })
 
   return latestCachedPrice(supabase, symbol, date)
+}
+
+/** Most recent cached close for a symbol, regardless of how old (read path). */
+export async function getLatestCachedSecurityPrice(
+  supabase: SupabaseClient<Database>,
+  rawSymbol: string | null
+): Promise<SecurityPrice | null> {
+  if (!rawSymbol) return null
+  const symbol = normalizeSecuritySymbol(rawSymbol)
+  if (!symbol) return null
+
+  const { data } = await supabase
+    .from('bio_security_prices')
+    .select('*')
+    .eq('symbol', symbol)
+    .eq('source', FMP_SOURCE)
+    .order('price_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return (data as unknown as SecurityPrice | null) ?? null
+}
+
+export interface SecurityPriceRefreshResult {
+  symbol: string
+  status: 'fetched' | 'cached' | 'failed'
+  price_date: string | null
+  close_cents: number | null
+  error?: string
+}
+
+/**
+ * Daily-refresh variant of getOrFetchDailySecurityPrice. Always attempts a live
+ * FMP fetch (so a recent cache hit doesn't suppress the new EOD), upserts what
+ * it gets, and falls back to the latest cached close when FMP is unavailable.
+ * Never throws — returns a per-symbol result for the cron summary.
+ */
+export async function refreshLatestSecurityPrice(
+  supabase: SupabaseClient<Database>,
+  rawSymbol: string,
+  asOfDate: string
+): Promise<SecurityPriceRefreshResult> {
+  const symbol = normalizeSecuritySymbol(rawSymbol)
+  if (!symbol) {
+    return { symbol: rawSymbol, status: 'failed', price_date: null, close_cents: null, error: 'empty symbol' }
+  }
+
+  let fetched: DailySecurityPriceInput[] = []
+  let fetchError: string | null = null
+  try {
+    fetched = await fetchFmpPrices(symbol, asOfDate)
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : 'fetch failed'
+  }
+
+  if (fetched.length > 0) {
+    const { error } = await supabase
+      .from('bio_security_prices')
+      .upsert(fetched, { onConflict: 'symbol,price_date,source' })
+    if (error) {
+      return { symbol, status: 'failed', price_date: null, close_cents: null, error: error.message }
+    }
+    const latest = await latestCachedPrice(supabase, symbol, asOfDate)
+    return {
+      symbol,
+      status: 'fetched',
+      price_date: latest?.price_date ?? null,
+      close_cents: latest?.close_cents ?? null,
+    }
+  }
+
+  // No fresh data: report the most recent cached close if we have one.
+  const cached = await latestCachedPrice(supabase, symbol, asOfDate)
+  if (cached) {
+    return { symbol, status: 'cached', price_date: cached.price_date, close_cents: cached.close_cents }
+  }
+
+  return {
+    symbol,
+    status: 'failed',
+    price_date: null,
+    close_cents: null,
+    error: fetchError ?? (process.env.FMP_API_KEY ? 'no price returned' : 'FMP_API_KEY not set'),
+  }
+}
+
+export interface StockValuation {
+  held: boolean
+  fmvTotalCents: number
+  latestCloseCents: number | null
+  latestCloseDate: string | null
+  currentValueCents: number | null
+  unrealizedGainLossCents: number | null
+  saleNetCents: number | null
+  realizedGainLossCents: number | null
+}
+
+/**
+ * Pure estimate of a stock gift's current/realized position. Held positions
+ * (no sale_date) are marked to the latest cached close; sold positions report
+ * net proceeds. Gain/loss is measured against the internal FMV at receipt.
+ */
+export function computeStockValuation(
+  detail: Pick<StockContributionDetail, 'shares' | 'fmv_total_cents' | 'sale_date' | 'sale_net_cents'>,
+  latestPrice: Pick<SecurityPrice, 'close_cents' | 'price_date'> | null
+): StockValuation {
+  const fmvTotalCents = detail.fmv_total_cents
+  const latestCloseCents = latestPrice?.close_cents ?? null
+  const latestCloseDate = latestPrice?.price_date ?? null
+
+  if (detail.sale_date !== null) {
+    const saleNetCents = detail.sale_net_cents
+    return {
+      held: false,
+      fmvTotalCents,
+      latestCloseCents,
+      latestCloseDate,
+      currentValueCents: null,
+      unrealizedGainLossCents: null,
+      saleNetCents,
+      realizedGainLossCents: saleNetCents !== null ? saleNetCents - fmvTotalCents : null,
+    }
+  }
+
+  const currentValueCents =
+    latestCloseCents !== null ? Math.round(detail.shares * latestCloseCents) : null
+  return {
+    held: true,
+    fmvTotalCents,
+    latestCloseCents,
+    latestCloseDate,
+    currentValueCents,
+    unrealizedGainLossCents: currentValueCents !== null ? currentValueCents - fmvTotalCents : null,
+    saleNetCents: null,
+    realizedGainLossCents: null,
+  }
 }

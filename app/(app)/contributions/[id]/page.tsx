@@ -12,6 +12,10 @@ import type {
   Contribution,
   StockContributionDetail,
 } from '@/lib/supabase/types/database'
+import {
+  computeStockValuation,
+  getLatestCachedSecurityPrice,
+} from '@/lib/market/security-prices'
 import { METHOD_LABELS } from '../methods'
 import ContributionForm from '../new/ContributionForm'
 import LetterPanel from './LetterPanel'
@@ -29,6 +33,17 @@ function formatShares(shares: number): string {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 6,
   }).format(shares)
+}
+
+function GainLoss({ cents }: { cents: number | null }) {
+  if (cents === null) return <span className="tabular-nums text-gray-400">—</span>
+  const positive = cents >= 0
+  return (
+    <span className={`tabular-nums ${positive ? 'text-green-700' : 'text-red-600'}`}>
+      {positive ? '+' : '-'}
+      {formatCents(Math.abs(cents))}
+    </span>
+  )
 }
 
 export default async function ContributionDetailPage({
@@ -79,6 +94,16 @@ export default async function ContributionDetailPage({
   const attachments = (attachmentsRes.data ?? []) as unknown as Attachment[]
   const contacts = (contactsRes.data ?? []) as unknown as { id: string; display_name: string }[]
   const stockDetail = stockDetailRes.data as unknown as StockContributionDetail | null
+
+  // Mark-to-market estimate for stock gifts with a ticker (latest cached close).
+  const latestPrice =
+    contribution.method === 'stock' && stockDetail?.ticker_symbol
+      ? await getLatestCachedSecurityPrice(supabase, stockDetail.ticker_symbol)
+      : null
+  const valuation =
+    contribution.method === 'stock' && stockDetail
+      ? computeStockValuation(stockDetail, latestPrice)
+      : null
 
   const letterSent = letter?.status === 'sent'
 
@@ -176,6 +201,60 @@ export default async function ContributionDetailPage({
               {contribution.notes && <DetailRow label="Notes">{contribution.notes}</DetailRow>}
             </dl>
           </div>
+
+          {valuation && (
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-medium text-gray-900">Current value</h2>
+                <span className="text-[11px] uppercase tracking-wide text-gray-400">Estimate</span>
+              </div>
+              {valuation.held ? (
+                valuation.latestCloseCents !== null ? (
+                  <dl>
+                    <DetailRow label="Latest close">
+                      <span className="tabular-nums">{formatCents(valuation.latestCloseCents)}</span>
+                      {valuation.latestCloseDate && (
+                        <span className="text-gray-400">
+                          {' '}
+                          as of {formatDate(valuation.latestCloseDate)}
+                        </span>
+                      )}
+                    </DetailRow>
+                    <DetailRow label="Estimated current value">
+                      <span className="tabular-nums">{formatCents(valuation.currentValueCents)}</span>
+                    </DetailRow>
+                    <DetailRow label="FMV at receipt">
+                      <span className="tabular-nums">{formatCents(valuation.fmvTotalCents)}</span>
+                    </DetailRow>
+                    <DetailRow label="Unrealized gain/loss">
+                      <GainLoss cents={valuation.unrealizedGainLossCents} />
+                    </DetailRow>
+                  </dl>
+                ) : (
+                  <p className="text-sm text-gray-500 mt-2">
+                    No market price cached yet. The daily price job fills this in once it runs
+                    (requires an FMP API key).
+                  </p>
+                )
+              ) : (
+                <dl>
+                  <DetailRow label="Net sale proceeds">
+                    <span className="tabular-nums">{formatCents(valuation.saleNetCents)}</span>
+                  </DetailRow>
+                  <DetailRow label="FMV at receipt">
+                    <span className="tabular-nums">{formatCents(valuation.fmvTotalCents)}</span>
+                  </DetailRow>
+                  <DetailRow label="Realized gain/loss">
+                    <GainLoss cents={valuation.realizedGainLossCents} />
+                  </DetailRow>
+                </dl>
+              )}
+              <p className="mt-3 text-xs text-gray-400">
+                Market figures are estimates from cached end-of-day prices, not a valuation for tax
+                purposes.
+              </p>
+            </div>
+          )}
 
           {letterSent ? (
             <div className="card p-5 text-sm text-gray-500">

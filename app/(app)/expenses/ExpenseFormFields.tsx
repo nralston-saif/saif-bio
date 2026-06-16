@@ -1,4 +1,5 @@
-import ContactSelect from '@/components/ContactSelect'
+import VendorSelect from '@/components/VendorSelect'
+import HelpTip from '@/components/HelpTip'
 import MoneyInput from '@/components/MoneyInput'
 import { centsToDollarString } from '@/lib/utils/money'
 import { todayISO } from '@/lib/utils/dates'
@@ -117,7 +118,7 @@ export default function ExpenseFormFields({
 
       <div>
         <span className={labelClass}>Vendor</span>
-        <ContactSelect
+        <VendorSelect
           name="vendor_contact_id"
           contacts={vendors}
           defaultValue={expense?.vendor_contact_id}
@@ -180,18 +181,30 @@ export default function ExpenseFormFields({
       </div>
 
       <div className="sm:col-span-2">
-        <label className="flex items-start gap-2">
+        <div className="flex items-start gap-2">
           <input
+            id="is_1099_eligible"
             type="checkbox"
             name="is_1099_eligible"
             defaultChecked={expense?.is_1099_eligible ?? false}
             className="mt-0.5 h-4 w-4 rounded border-gray-300"
           />
-          <span>
-            <span className="block text-sm font-medium text-gray-700">1099 eligible</span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="is_1099_eligible" className="text-sm font-medium text-gray-700">
+                1099 eligible
+              </label>
+              <HelpTip title="When is an expense 1099-eligible?">
+                Generally you must issue a Form 1099-NEC when you pay <strong>$600 or more</strong> in
+                a calendar year to an <strong>unincorporated</strong> vendor (individual, sole
+                proprietor, partnership, or LLC) for <strong>services</strong>. Exclude payments for
+                goods, payments to corporations (except attorneys&rsquo; legal fees), employee wages,
+                and reimbursements. When unsure, mark it eligible and confirm with your accountant.
+              </HelpTip>
+            </div>
             <span className="block text-xs text-gray-400">Track for year-end 1099 reporting</span>
-          </span>
-        </label>
+          </div>
+        </div>
       </div>
 
       <div className="sm:col-span-2">
