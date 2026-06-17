@@ -9,6 +9,12 @@ export interface MiddlewareConfig {
   loginPath?: string
   /** Path to redirect authenticated users to when accessing login page */
   defaultRedirect?: string
+  /**
+   * Optional: for an unauthenticated request, return a path (relative, no
+   * basePath) to send the user to instead of loginPath — e.g. an SSO bridge
+   * that can establish a session. Return null to fall through to loginPath.
+   */
+  ssoRedirect?: (request: NextRequest) => string | null
 }
 
 export async function updateSession(
@@ -19,6 +25,7 @@ export async function updateSession(
     publicPaths = ['/auth', '/_next', '/api'],
     loginPath = '/login',
     defaultRedirect = '/',
+    ssoRedirect,
   } = config
 
   let supabaseResponse = NextResponse.next({ request })
@@ -63,7 +70,9 @@ export async function updateSession(
     })
 
   if (!user && !isPublicPath) {
-    return redirectTo(loginPath)
+    // Give an SSO bridge first crack at establishing a session before we send
+    // the user to the login page.
+    return redirectTo(ssoRedirect?.(request) ?? loginPath)
   }
 
   if (user && request.nextUrl.pathname === loginPath) {

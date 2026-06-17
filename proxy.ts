@@ -1,4 +1,5 @@
 import { updateSession, NextResponse, type NextRequest } from '@/lib/supabase/middleware'
+import { hasCrmSession } from '@/lib/supabase/sso'
 
 // Generate a cryptographically secure nonce
 function generateNonce(): string {
@@ -56,6 +57,14 @@ export async function proxy(request: NextRequest) {
     publicPaths: ['/login', '/auth', '/_next', '/access-denied'],
     loginPath: '/login',
     defaultRedirect: '/',
+    // If the visitor has no SAIF Bio session but is signed into the CRM (same
+    // origin), route them through the SSO bridge to mint one. The one-shot
+    // guard cookie stops a failed bridge from looping back here.
+    ssoRedirect: (req) => {
+      if (req.cookies.has('bio_sso_tried') || !hasCrmSession(req)) return null
+      const next = req.nextUrl.pathname + (req.nextUrl.search || '')
+      return `/auth/sso?next=${encodeURIComponent(next)}`
+    },
   })
 
   response.headers.set('x-nonce', nonce)
