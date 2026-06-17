@@ -51,16 +51,23 @@ export async function updateSession(
     request.nextUrl.pathname.startsWith(path)
   )
 
+  // Relative redirect so the browser resolves against whatever host is in the
+  // address bar. When this app is proxied as the /bio zone under
+  // internal.saif.vc, an absolute-host redirect could escape to the raw bio
+  // deployment domain; a relative Location stays on the public host. basePath
+  // is read at runtime so this helper works with or without a basePath.
+  const redirectTo = (pathname: string) =>
+    new NextResponse(null, {
+      status: 307,
+      headers: { Location: `${request.nextUrl.basePath}${pathname}` },
+    })
+
   if (!user && !isPublicPath) {
-    const url = request.nextUrl.clone()
-    url.pathname = loginPath
-    return NextResponse.redirect(url)
+    return redirectTo(loginPath)
   }
 
   if (user && request.nextUrl.pathname === loginPath) {
-    const url = request.nextUrl.clone()
-    url.pathname = defaultRedirect
-    return NextResponse.redirect(url)
+    return redirectTo(defaultRedirect)
   }
 
   return supabaseResponse
