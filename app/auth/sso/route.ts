@@ -12,6 +12,8 @@ import type { Database } from '@/lib/supabase/types/database'
 // present. Keeps the two Supabase projects fully separate — we only read the
 // CRM identity and mint a native SAIF Bio session for it.
 const BASE_PATH = '/bio'
+const GUARD = 'bio_sso_tried'
+const guardOpts = { httpOnly: true, sameSite: 'lax', path: BASE_PATH } as const
 
 function withBase(path: string): string {
   const clean = path.startsWith('/') ? path : `/${path}`
@@ -19,27 +21,26 @@ function withBase(path: string): string {
   return clean === BASE_PATH || clean.startsWith(`${BASE_PATH}/`) ? clean : `${BASE_PATH}${clean}`
 }
 
+function mkRedirect(path: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: withBase(path) } })
+}
+
 export async function GET(request: NextRequest) {
   const next = request.nextUrl.searchParams.get('next') ?? '/'
 
-  // Relative redirect (stays on the public host) + a 60s one-shot guard cookie
-  // so a failed bridge can't bounce the middleware into a redirect loop.
-  const redirect = (path: string) => {
-    const res = new NextResponse(null, { status: 307, headers: { Location: withBase(path) } })
-    res.cookies.set('bio_sso_tried', '1', {
-      maxAge: 60,
-      httpOnly: true,
-      sameSite: 'lax',
-      path: BASE_PATH,
-    })
+  // Failure → login, and arm a 60s one-shot guard so the middleware can't bounce
+  // straight back here into a redirect loop.
+  const fail = () => {
+    const res = mkRedirect('/login')
+    res.cookies.set(GUARD, '1', { ...guardOpts, maxAge: 60 })
     return res
   }
 
-  if (isDemoMode()) return redirect(next)
+  if (isDemoMode()) return mkRedirect(next)
 
   // 1. Who is signed into the CRM? (validated against the CRM project)
   const email = await getCrmEmail(request)
-  if (!email) return redirect('/login')
+  if (!email) return fail()
 
   // 2. Are they an active SAIF Bio partner?
   const admin = createAdminClient()
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     .eq('email', email)
     .eq('is_active', true)
     .maybeSingle()
-  if (!member) return redirect('/login')
+  if (!member) return fail()
 
   // 3. Mint a native SAIF Bio session for that partner — no password prompt.
   const { data: link, error: linkError } = await admin.auth.admin.generateLink({
@@ -57,9 +58,13 @@ export async function GET(request: NextRequest) {
     email,
   })
   const tokenHash = link?.properties?.hashed_token
-  if (linkError || !tokenHash) return redirect('/login')
+  if (linkError || !tokenHash) return fail()
 
-  const response = redirect(next)
+  // Success: clear the guard and let verifyOtp write the session cookies onto
+  // the redirect response.
+  const response = mkRedirect(next)
+  response.cookies.set(GUARD, '', { ...guardOpts, maxAge: 0 })
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -78,7 +83,7 @@ export async function GET(request: NextRequest) {
     token_hash: tokenHash,
     type: 'magiclink',
   })
-  if (verifyError) return redirect('/login')
+  if (verifyError) return fail()
 
   return response
 }
