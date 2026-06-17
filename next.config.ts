@@ -15,6 +15,11 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  // Served as a Next.js "zone" under internal.saif.vc/bio. basePath prefixes
+  // every route, route handler, and /_next asset with /bio so it never
+  // collides with the saif-monorepo app that owns the rest of the domain.
+  // saif-monorepo's next.config rewrites /bio and /bio/:path* to this app.
+  basePath: '/bio',
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
