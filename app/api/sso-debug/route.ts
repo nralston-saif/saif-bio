@@ -55,5 +55,8 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     result.error = e instanceof Error ? e.message : String(e)
   }
-  return NextResponse.json(result)
+  const res = NextResponse.json(result)
+  // Test whether a server-set cookie survives the proxy back to the browser.
+  res.cookies.set('bio_cookie_test', 'ok', { path: '/bio', sameSite: 'lax', secure: true })
+  return res
 }
