@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/PageHeader'
 import { formatCents } from '@/lib/utils/money'
 import { currentFiscalYear, fiscalYearRange } from '@/lib/utils/fiscal-year'
+import { withBasePath } from '@/lib/basePath'
 import type { FunctionalClass } from '@/lib/supabase/types/database'
 
 const FUNCTIONAL_CLASS_ORDER: FunctionalClass[] = ['program', 'management_general', 'fundraising']
@@ -18,7 +19,7 @@ function SectionHeader({ title, csvHref }: { title: string; csvHref: string }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <h2 className="font-medium text-gray-900">{title}</h2>
-      <a href={csvHref} className="text-xs text-gray-500 hover:text-gray-900 underline">
+      <a href={withBasePath(csvHref)} className="text-xs text-gray-500 hover:text-gray-900 underline">
         Download CSV
       </a>
     </div>

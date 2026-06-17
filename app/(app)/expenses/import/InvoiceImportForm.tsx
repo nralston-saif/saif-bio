@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createExpenseFromInvoice } from '@/lib/actions/expenses'
 import SubmitButton from '@/components/SubmitButton'
+import { withBasePath } from '@/lib/basePath'
 import { formatCents } from '@/lib/utils/money'
 import { formatDate } from '@/lib/utils/dates'
 import type { Expense, ExpenseCategory } from '@/lib/supabase/types/database'
@@ -68,7 +69,7 @@ export default function InvoiceImportForm({
     try {
       const body = new FormData()
       body.set('file', file)
-      const res = await fetch('/api/invoices/extract', { method: 'POST', body })
+      const res = await fetch(withBasePath('/api/invoices/extract'), { method: 'POST', body })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         throw new Error(json.error ?? `Couldn't read the PDF (${res.status})`)

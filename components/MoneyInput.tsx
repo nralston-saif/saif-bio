@@ -39,7 +39,10 @@ export default function MoneyInput({
         readOnly={readOnly}
         placeholder={placeholder ?? '0.00'}
         pattern={`[0-9,]*\\.?[0-9]{0,${maxDecimals}}`}
-        className={`input pl-7!${readOnly ? ' bg-gray-100 text-gray-600' : ''}`}
+        // Inline padding-left so the leading "$" never overlaps the first digit
+        // (a Tailwind utility loses the cascade to the `.input` shorthand padding).
+        style={{ paddingLeft: '1.75rem' }}
+        className={`input${readOnly ? ' bg-gray-100 text-gray-600' : ''}`}
       />
     </div>
   )

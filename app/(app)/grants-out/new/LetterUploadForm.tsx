@@ -6,6 +6,7 @@ import { createProposalWithLetter } from '@/lib/actions/grants-out'
 import ContactSelect from '@/components/ContactSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
+import { withBasePath } from '@/lib/basePath'
 
 type Contact = { id: string; display_name: string }
 type PreviewState =
@@ -47,7 +48,7 @@ export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) 
       try {
         const body = new FormData()
         body.set('file', file)
-        const res = await fetch('/api/preview-docx', { method: 'POST', body })
+        const res = await fetch(withBasePath('/api/preview-docx'), { method: 'POST', body })
         if (!res.ok) {
           const json = await res.json().catch(() => ({}))
           throw new Error(json.error ?? `Preview failed (${res.status})`)

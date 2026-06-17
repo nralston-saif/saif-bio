@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { generateLetter, sendLetter } from '@/lib/actions/letters'
 import StatusBadge from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
+import { withBasePath } from '@/lib/basePath'
 import type { LetterStatus } from '@/lib/supabase/types/database'
 
 interface LetterPanelProps {
@@ -89,7 +90,7 @@ export default function LetterPanel({ contributionId, letter, hasEmail }: Letter
 
         {hasGenerated && (
           <a
-            href={`/api/letters/${contributionId}`}
+            href={withBasePath(`/api/letters/${contributionId}`)}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary text-xs"
