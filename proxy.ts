@@ -70,6 +70,16 @@ export async function proxy(request: NextRequest) {
   response.headers.set('x-nonce', nonce)
   response.headers.set('Content-Security-Policy-Report-Only', buildCSP(nonce))
 
+  // TEMP debug: expose the SSO decision inputs so we can see why the bridge
+  // does or doesn't fire. Remove after diagnosis.
+  response.headers.set('x-dbg-path', request.nextUrl.pathname)
+  response.headers.set('x-dbg-crm', String(hasCrmSession(request)))
+  response.headers.set('x-dbg-guard', String(request.cookies.has('bio_sso_tried')))
+  response.headers.set(
+    'x-dbg-cookies',
+    request.cookies.getAll().map((c) => c.name).join(',')
+  )
+
   return response
 }
 
