@@ -15,6 +15,14 @@ function dollars(cents: number | null | undefined): string {
   return (cents / 100).toFixed(2)
 }
 
+/** Like dollars() but keeps sub-cent precision (per-share prices stored as numeric). */
+function perShareDollars(cents: number | string | null | undefined): string {
+  if (cents === null || cents === undefined || cents === '') return ''
+  const n = typeof cents === 'string' ? Number(cents) : cents
+  if (!Number.isFinite(n)) return ''
+  return String(Number((n / 100).toFixed(6)))
+}
+
 function toCsv(header: string[], rows: (string | number | boolean | null)[][]): string {
   return [header, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n') + '\n'
 }
@@ -154,7 +162,7 @@ export async function GET(
             stock?.ticker_symbol ?? '',
             stock?.shares ?? '',
             stock?.valuation_date ?? '',
-            dollars(stock?.fmv_per_share_cents),
+            perShareDollars(stock?.fmv_per_share_cents),
             stock?.valuation_source ?? '',
             stock?.sale_date ?? '',
             dollars(stock?.sale_net_cents),

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/PageHeader'
 import AttachmentsPanel from '@/components/AttachmentsPanel'
-import { formatCents } from '@/lib/utils/money'
+import { formatCents, formatPerShareCents } from '@/lib/utils/money'
 import { formatDate } from '@/lib/utils/dates'
 import type {
   AcknowledgementLetter,
@@ -152,7 +152,7 @@ export default async function ContributionDetailPage({
                   </DetailRow>
                   <DetailRow label="FMV per share">
                     <span className="tabular-nums">
-                      {formatCents(stockDetail.fmv_per_share_cents)}
+                      {formatPerShareCents(stockDetail.fmv_per_share_cents)}
                     </span>
                   </DetailRow>
                   <DetailRow label="Valuation source">

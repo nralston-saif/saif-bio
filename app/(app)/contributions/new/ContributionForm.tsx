@@ -5,7 +5,7 @@ import { createContribution, updateContribution } from '@/lib/actions/contributi
 import MoneyInput from '@/components/MoneyInput'
 import ContactSelect from '@/components/ContactSelect'
 import { useToast } from '@/components/Toast'
-import { centsToDollarString } from '@/lib/utils/money'
+import { centsToDollarString, centsToPerShareString } from '@/lib/utils/money'
 import { todayISO } from '@/lib/utils/dates'
 import type {
   Contribution,
@@ -33,6 +33,15 @@ function Label({ children }: { children: React.ReactNode }) {
   return <span className="block text-xs font-medium text-gray-600 mb-1">{children}</span>
 }
 
+/** Total FMV in dollars from a shares × per-share pair, or '' if either is blank/invalid. */
+function computeTotal(sharesStr: string, perShareStr: string): string {
+  if (perShareStr.trim() === '' || sharesStr.trim() === '') return ''
+  const s = Number(sharesStr.replace(/,/g, ''))
+  const p = Number(perShareStr.replace(/[$,\s]/g, ''))
+  if (!Number.isFinite(s) || !Number.isFinite(p) || s <= 0) return ''
+  return (s * p).toFixed(2)
+}
+
 export default function ContributionForm({
   contacts,
   contribution,
@@ -45,6 +54,28 @@ export default function ContributionForm({
   const [quidProQuo, setQuidProQuo] = useState(contribution?.quid_pro_quo ?? false)
   const [isPending, startTransition] = useTransition()
   const { showToast } = useToast()
+
+  // Stock FMV fields are coupled: total = shares × per-share. Keep them in state
+  // so editing the per-share price (or shares) re-derives the displayed total.
+  const initialShares = stockDetail?.shares != null ? String(stockDetail.shares) : ''
+  const initialPerShare = centsToPerShareString(stockDetail?.fmv_per_share_cents)
+  const [shares, setShares] = useState(initialShares)
+  const [perShare, setPerShare] = useState(initialPerShare)
+  const [amount, setAmount] = useState(
+    contribution?.method === 'stock' && initialPerShare.trim() !== ''
+      ? computeTotal(initialShares, initialPerShare)
+      : centsToDollarString(contribution?.amount_cents)
+  )
+
+  const handleSharesChange = (value: string) => {
+    setShares(value)
+    if (perShare.trim() !== '') setAmount(computeTotal(value, perShare))
+  }
+
+  const handlePerShareChange = (value: string) => {
+    setPerShare(value)
+    if (value.trim() !== '') setAmount(computeTotal(shares, value))
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -122,8 +153,16 @@ export default function ContributionForm({
           <MoneyInput
             name="amount"
             required={!inKind && !stock}
-            defaultValue={centsToDollarString(contribution?.amount_cents)}
+            value={amount}
+            onChange={setAmount}
+            readOnly={stock && perShare.trim() !== ''}
           />
+          {stock && perShare.trim() !== '' && (
+            <span className="mt-1 block text-xs text-gray-500">
+              Computed from shares × FMV per share. Clear the per-share price to enter a total
+              directly.
+            </span>
+          )}
         </label>
 
         {method === 'check' && (
@@ -191,7 +230,8 @@ export default function ContributionForm({
                 min="0"
                 step="0.000001"
                 required
-                defaultValue={stockDetail?.shares ?? ''}
+                value={shares}
+                onChange={(e) => handleSharesChange(e.target.value)}
                 className="input"
               />
             </label>
@@ -210,7 +250,9 @@ export default function ContributionForm({
               <Label>FMV per share</Label>
               <MoneyInput
                 name="stock_fmv_per_share"
-                defaultValue={centsToDollarString(stockDetail?.fmv_per_share_cents)}
+                value={perShare}
+                onChange={handlePerShareChange}
+                maxDecimals={6}
               />
             </label>
 

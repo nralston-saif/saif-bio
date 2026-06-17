@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
-import { parseDollarsToCents } from '@/lib/utils/money'
+import { parseDollarsToCents, parseDollarsToCentsPrecise } from '@/lib/utils/money'
 import { getOrFetchDailySecurityPrice, normalizeSecuritySymbol } from '@/lib/market/security-prices'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
@@ -41,6 +41,15 @@ function optionalCents(formData: FormData, key: string): number | null {
   return cents
 }
 
+/** Like optionalCents but keeps sub-cent precision (for per-share prices). */
+function optionalCentsPrecise(formData: FormData, key: string): number | null {
+  const input = optionalString(formData, key)
+  if (input === null) return null
+  const cents = parseDollarsToCentsPrecise(input)
+  if (cents === null) throw new ActionError(`Invalid amount: ${key}`)
+  return cents
+}
+
 function optionalPositiveNumber(formData: FormData, key: string): number | null {
   const input = optionalString(formData, key)
   if (input === null) return null
@@ -71,24 +80,25 @@ async function stockDetailFields(
   const valuationDate = optionalString(formData, 'stock_valuation_date') ?? receivedDate
   const apiPrice = await getOrFetchDailySecurityPrice(supabase, tickerSymbol, valuationDate)
 
-  let fmvPerShareCents = optionalCents(formData, 'stock_fmv_per_share')
+  let fmvPerShareCents = optionalCentsPrecise(formData, 'stock_fmv_per_share')
   let fmvTotalCents = totalFmvInputCents
   let valuationSource = (optionalString(formData, 'stock_valuation_source') ??
     'manual') as StockValuationSource
   let marketPriceSource: string | null = null
 
-  if (fmvPerShareCents === null && apiPrice) {
-    fmvPerShareCents = apiPrice.close_cents
-    marketPriceSource = apiPrice.source
-    if (fmvTotalCents === null) valuationSource = 'api_estimate'
-  }
-
-  if (fmvTotalCents === null && fmvPerShareCents !== null) {
+  if (fmvPerShareCents !== null) {
+    // An explicit per-share price is authoritative: the total FMV is always
+    // shares × per-share, so editing the price always re-derives the total.
     fmvTotalCents = Math.round(fmvPerShareCents * shares)
-  }
-
-  if (fmvPerShareCents === null && fmvTotalCents !== null) {
-    fmvPerShareCents = Math.round(fmvTotalCents / shares)
+  } else if (fmvTotalCents !== null) {
+    // Only a total was entered: derive the per-share figure for the record.
+    fmvPerShareCents = Math.round((fmvTotalCents / shares) * 1e6) / 1e6
+  } else if (apiPrice) {
+    // Nothing entered: fall back to the cached market close for the date.
+    fmvPerShareCents = apiPrice.close_cents
+    fmvTotalCents = Math.round(fmvPerShareCents * shares)
+    marketPriceSource = apiPrice.source
+    valuationSource = 'api_estimate'
   }
 
   if (fmvTotalCents === null) {
