@@ -29,22 +29,6 @@ function buildCSP(nonce: string): string {
 export async function proxy(request: NextRequest) {
   const nonce = generateNonce()
 
-  // TEMP: readable view of the SSO decision for a /bio-type request. Remove.
-  if (request.nextUrl.searchParams.has('ssodbg')) {
-    const guard = request.cookies.has('bio_sso_tried')
-    const crm = hasCrmSession(request)
-    return NextResponse.json({
-      path: request.nextUrl.pathname,
-      basePath: request.nextUrl.basePath,
-      crm,
-      guard,
-      useSupabaseEnv: process.env.NEXT_PUBLIC_USE_SUPABASE ?? null,
-      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      ssoWouldReturn: guard || !crm ? null : '/auth/sso',
-      cookies: request.cookies.getAll().map((c) => c.name),
-    })
-  }
-
   // API routes handle their own auth but still get CSP
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const response = NextResponse.next()
@@ -85,16 +69,6 @@ export async function proxy(request: NextRequest) {
 
   response.headers.set('x-nonce', nonce)
   response.headers.set('Content-Security-Policy-Report-Only', buildCSP(nonce))
-
-  // TEMP debug: expose the SSO decision inputs so we can see why the bridge
-  // does or doesn't fire. Remove after diagnosis.
-  response.headers.set('x-dbg-path', request.nextUrl.pathname)
-  response.headers.set('x-dbg-crm', String(hasCrmSession(request)))
-  response.headers.set('x-dbg-guard', String(request.cookies.has('bio_sso_tried')))
-  response.headers.set(
-    'x-dbg-cookies',
-    request.cookies.getAll().map((c) => c.name).join(',')
-  )
 
   return response
 }

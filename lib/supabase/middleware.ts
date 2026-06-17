@@ -66,7 +66,12 @@ export async function updateSession(
   const redirectTo = (pathname: string) =>
     new NextResponse(null, {
       status: 307,
-      headers: { Location: `${request.nextUrl.basePath}${pathname}` },
+      headers: {
+        Location: `${request.nextUrl.basePath}${pathname}`,
+        // Never let a navigation serve a cached auth redirect (e.g. a stale
+        // /bio -> /login from before the user had a session).
+        'Cache-Control': 'no-store',
+      },
     })
 
   if (!user && !isPublicPath) {

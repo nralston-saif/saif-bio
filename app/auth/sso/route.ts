@@ -8,9 +8,9 @@ import type { Database } from '@/lib/supabase/types/database'
 
 // SSO bridge: a partner already signed into the saif-monorepo CRM (same
 // internal.saif.vc origin) is auto-signed into SAIF Bio without a second login.
-// Reached from middleware when there's no SAIF Bio session but a CRM cookie is
-// present. Keeps the two Supabase projects fully separate — we only read the
-// CRM identity and mint a native SAIF Bio session for it.
+// The CRM "Bio" nav link points here, and middleware also routes unauthenticated
+// /bio requests through here. Keeps the two Supabase projects fully separate —
+// we only read the CRM identity and mint a native SAIF Bio session for it.
 const BASE_PATH = '/bio'
 const GUARD = 'bio_sso_tried'
 const guardOpts = { httpOnly: true, sameSite: 'lax', path: BASE_PATH } as const
@@ -22,7 +22,28 @@ function withBase(path: string): string {
 }
 
 function mkRedirect(path: string): NextResponse {
-  return new NextResponse(null, { status: 307, headers: { Location: withBase(path) } })
+  return new NextResponse(null, {
+    status: 307,
+    // no-store so a navigation can't cache this redirect (the decision depends
+    // on per-request cookies).
+    headers: { Location: withBase(path), 'Cache-Control': 'no-store' },
+  })
+}
+
+function bioClient(request: NextRequest, response: NextResponse) {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (toSet) =>
+          toSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          ),
+      },
+    }
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -37,6 +58,14 @@ export async function GET(request: NextRequest) {
   }
 
   if (isDemoMode()) return mkRedirect(next)
+
+  // Already signed into SAIF Bio? Nothing to do — don't re-mint on every visit.
+  const probe = mkRedirect(next)
+  const existing = await bioClient(request, probe).auth.getUser()
+  if (existing.data.user) {
+    probe.cookies.set(GUARD, '', { ...guardOpts, maxAge: 0 })
+    return probe
+  }
 
   // 1. Who is signed into the CRM? (validated against the CRM project)
   const email = await getCrmEmail(request)
@@ -65,21 +94,7 @@ export async function GET(request: NextRequest) {
   const response = mkRedirect(next)
   response.cookies.set(GUARD, '', { ...guardOpts, maxAge: 0 })
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (toSet) =>
-          toSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          ),
-      },
-    }
-  )
-
-  const { error: verifyError } = await supabase.auth.verifyOtp({
+  const { error: verifyError } = await bioClient(request, response).auth.verifyOtp({
     token_hash: tokenHash,
     type: 'magiclink',
   })
