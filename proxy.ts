@@ -29,6 +29,22 @@ function buildCSP(nonce: string): string {
 export async function proxy(request: NextRequest) {
   const nonce = generateNonce()
 
+  // TEMP: readable view of the SSO decision for a /bio-type request. Remove.
+  if (request.nextUrl.searchParams.has('ssodbg')) {
+    const guard = request.cookies.has('bio_sso_tried')
+    const crm = hasCrmSession(request)
+    return NextResponse.json({
+      path: request.nextUrl.pathname,
+      basePath: request.nextUrl.basePath,
+      crm,
+      guard,
+      useSupabaseEnv: process.env.NEXT_PUBLIC_USE_SUPABASE ?? null,
+      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      ssoWouldReturn: guard || !crm ? null : '/auth/sso',
+      cookies: request.cookies.getAll().map((c) => c.name),
+    })
+  }
+
   // API routes handle their own auth but still get CSP
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const response = NextResponse.next()
