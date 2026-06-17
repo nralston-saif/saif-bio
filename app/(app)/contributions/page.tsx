@@ -72,6 +72,8 @@ export default async function ContributionsPage() {
     (c) => c.received_date.startsWith(`${currentYear}-`) && c.method === 'stock'
   )
   const ytdStockCents = ytdStock.reduce((sum, c) => sum + (c.amount_cents ?? 0), 0)
+  const ytdTotalCents = ytdCashCents + ytdStockCents
+  const ytdTotalCount = ytd.length + ytdStock.length
 
   return (
     <div>
@@ -81,7 +83,16 @@ export default async function ContributionsPage() {
         action={{ href: '/contributions/new', label: 'Record contribution' }}
       />
 
-      <div className="card p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="card p-5 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="sm:border-r sm:border-gray-100 sm:pr-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total contributions</p>
+          <p className="text-2xl font-semibold text-gray-900 tabular-nums">
+            {formatCents(ytdTotalCents)}
+          </p>
+          <p className="text-sm text-gray-500">
+            {currentYear} · cash + stock · {ytdTotalCount} gift{ytdTotalCount === 1 ? '' : 's'}
+          </p>
+        </div>
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-wide">Cash contributions</p>
           <p className="text-2xl font-semibold text-gray-900 tabular-nums">
