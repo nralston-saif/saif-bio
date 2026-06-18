@@ -35,3 +35,4 @@ supabase/.temp
 /*.webp
 # Private signature assets (kept in Supabase Storage, never in git)
 *sig*private*
+/*.docx

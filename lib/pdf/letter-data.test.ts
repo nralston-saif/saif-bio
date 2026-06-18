@@ -57,8 +57,9 @@ const orgContact: Contact = {
   // Display name is an app nickname; the letter should use the official org name.
   display_name: 'DALHAP',
   org_name: 'DALHAP Investments Ltd.',
-  first_name: null,
-  last_name: null,
+  first_name: 'Diane',
+  last_name: 'Stirling',
+  email: 'diane@dalhap.example',
 }
 
 function makeContribution(overrides: Partial<Contribution>): Contribution {
@@ -100,12 +101,19 @@ describe('buildLetterData (IRS Pub 1771 branches)', () => {
     )
     expect(data.inKindNote).toBeNull()
     expect(data.signatoryTitle).toBe('President, SAIFbio Inc.')
+    // Recipient block: name + email, no Attention line, no postal address.
+    expect(data.recipientLines).toEqual(['Jane Donor', 'Email: jane@example.com'])
   })
 
-  it('organization donor is thanked in the third person', () => {
+  it('organization donor: official name, attention + email block, third-person thanks', () => {
     const data = buildLetterData(makeContribution({}), orgContact, settings, '2026-06-12')
-    expect(data.salutation).toBe('Dear DALHAP Investments Ltd.:')
+    expect(data.salutation).toBe('Dear Diane:')
     expect(data.giftParagraph).toContain('thank DALHAP Investments Ltd. for its donation')
+    expect(data.recipientLines).toEqual([
+      'DALHAP Investments Ltd.',
+      'Attention: Diane Stirling',
+      'Email: diane@dalhap.example',
+    ])
   })
 
   it('quid pro quo gift includes description, good-faith estimate, and excess-deductibility language', () => {

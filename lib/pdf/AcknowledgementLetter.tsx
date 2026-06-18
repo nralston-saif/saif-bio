@@ -40,10 +40,9 @@ const styles = StyleSheet.create({
     height: 40,
   },
   signatureImage: {
-    // 420x240 source at its exact 1.75 aspect ratio; kept to a small, natural
-    // ~1in signature so it isn't upscaled/oversized.
-    width: 70,
-    height: 40,
+    // ~0.5in wide, exact 1.75 source aspect ratio (420x240).
+    width: 36,
+    height: 20.6,
     marginTop: 6,
     marginBottom: 2,
   },

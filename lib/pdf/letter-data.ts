@@ -105,11 +105,15 @@ export function buildLetterData(
     cityStateZip(settings.city, settings.state, settings.postal_code),
   ].filter((line): line is string => Boolean(line))
 
-  const donorAddressLines = [
-    contact.address_line1,
-    contact.address_line2,
-    cityStateZip(contact.city, contact.state, contact.postal_code),
-  ].filter((line): line is string => Boolean(line))
+  // Recipient block per the template: donor name, an "Attention:" line for an
+  // entity donor's contact person, and the contact email — not a postal address.
+  const contactPerson = [contact.first_name, contact.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+  const recipientLines = [donorName]
+  if (isOrg && contactPerson) recipientLines.push(`Attention: ${contactPerson}`)
+  if (contact.email) recipientLines.push(`Email: ${contact.email}`)
 
   const greetName = contact.first_name?.trim() || donorName
   const salutation = `Dear ${greetName}:`
@@ -135,11 +139,12 @@ export function buildLetterData(
     `${giftClause} to ${orgShortName}, which the organization received on ` +
     `${formatDateLong(contribution.received_date)}.`
 
+  // Option 2 (IRS recognition approved), per the template's exact wording.
   const deductibilityParagraph =
-    'Our organization is recognized by the U.S. Internal Revenue Service (“IRS”) as a ' +
-    'tax-exempt organization described in Section 501(c)(3) of the U.S. Internal Revenue Code ' +
-    '(the “Code”) and a public charity described in Section 509(a)(1) of the Code. Your ' +
-    'contribution is tax deductible as a charitable contribution to the full extent allowed by law.'
+    'Our organization is recognized by the Internal Revenue Service (“IRS”) as a tax-exempt ' +
+    'organization described in Section 501(c)(3) of the Internal Revenue Code (the “Code”) and ' +
+    'a public charity described in Section 509(a)(1) of the Code. Your contribution is tax ' +
+    'deductible as a charitable contribution to the full extent allowed by law.'
 
   let goodsServicesParagraph: string
   if (contribution.quid_pro_quo) {
@@ -167,7 +172,7 @@ export function buildLetterData(
     ein: settings.ein,
     orgAddressLines,
     letterDate: formatDateLong(letterDate),
-    recipientLines: [donorName, ...donorAddressLines],
+    recipientLines,
     salutation,
     giftParagraph,
     deductibilityParagraph,
