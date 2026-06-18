@@ -34,6 +34,9 @@ export async function GET(
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline; filename="contribution-acknowledgement.pdf"',
+      // Never cache the preview — the letter is re-rendered on every regenerate,
+      // so a cached copy would show a stale (e.g. old-signature) version.
+      'Cache-Control': 'no-store, max-age=0',
     },
   })
 }
