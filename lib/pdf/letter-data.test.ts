@@ -54,7 +54,8 @@ const contact: Contact = {
 const orgContact: Contact = {
   ...contact,
   contact_type: 'organization',
-  display_name: 'DALHAP Investments Ltd.',
+  // Display name is an app nickname; the letter should use the official org name.
+  display_name: 'DALHAP',
   org_name: 'DALHAP Investments Ltd.',
   first_name: null,
   last_name: null,

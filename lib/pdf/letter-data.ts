@@ -93,7 +93,11 @@ export function buildLetterData(
 
   const orgLegalName = settings.org_legal_name
   const orgShortName = shortName(orgLegalName)
-  const donorName = contact.display_name
+
+  const isOrg = contact.contact_type === 'organization' || Boolean(contact.org_name)
+  // Name the donor by their official/legal name on the letter, not an
+  // app-display nickname: prefer the organization's full name for orgs.
+  const donorName = isOrg && contact.org_name ? contact.org_name : contact.display_name
 
   const orgAddressLines = [
     settings.address_line1,
@@ -110,7 +114,6 @@ export function buildLetterData(
   const greetName = contact.first_name?.trim() || donorName
   const salutation = `Dear ${greetName}:`
 
-  const isOrg = contact.contact_type === 'organization' || Boolean(contact.org_name)
   const isNonCash = contribution.method === 'in_kind' || contribution.method === 'stock'
 
   let giftClause: string
