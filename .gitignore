@@ -28,3 +28,10 @@ supabase/.temp
 
 # Confidential reference docs dropped in the repo root (e.g. donor letters)
 /*.pdf
+/*.jpeg
+/*.jpg
+/*.png
+/*.gif
+/*.webp
+# Private signature assets (kept in Supabase Storage, never in git)
+*sig*private*

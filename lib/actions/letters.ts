@@ -9,12 +9,29 @@ import { buildLetterData, type LetterData } from '@/lib/pdf/letter-data'
 import { todayISO } from '@/lib/utils/dates'
 import { getResend } from '@/lib/email/resend'
 
-async function renderLetterPdf(data: LetterData): Promise<Buffer> {
+// Signatory e-signature lives in the private `letters` bucket — never in git —
+// so it is embedded at render time and survives deleting any local copy.
+const SIGNATURE_STORAGE_PATH = 'assets/signature.jpeg'
+
+/** The signatory's e-signature as a base64 data URI, or null if not uploaded. */
+async function getSignatureDataUri(): Promise<string | null> {
+  try {
+    const admin = createAdminClient()
+    const { data, error } = await admin.storage.from('letters').download(SIGNATURE_STORAGE_PATH)
+    if (error || !data) return null
+    const buf = Buffer.from(await data.arrayBuffer())
+    return `data:image/jpeg;base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+async function renderLetterPdf(data: LetterData, signature: string | null): Promise<Buffer> {
   // Dynamic imports keep @react-pdf/renderer out of shared bundles
   const { renderToBuffer } = await import('@react-pdf/renderer')
   const { default: AcknowledgementLetter } = await import('@/lib/pdf/AcknowledgementLetter')
   const { createElement } = await import('react')
-  const element = createElement(AcknowledgementLetter, { data })
+  const element = createElement(AcknowledgementLetter, { data, signature })
   // renderToBuffer's signature expects a <Document> element; ours is a
   // component that renders one, which works at runtime
   return renderToBuffer(element as unknown as Parameters<typeof renderToBuffer>[0])
@@ -69,7 +86,8 @@ export async function generateLetter(contributionId: string) {
     throw new ActionError(err instanceof Error ? err.message : 'Could not build letter')
   }
 
-  const pdf = await renderLetterPdf(letterData)
+  const signature = await getSignatureDataUri()
+  const pdf = await renderLetterPdf(letterData, signature)
 
   const year = contribution.received_date.slice(0, 4)
   const storagePath = `contributions/${contributionId}/acknowledgement-${year}.pdf`

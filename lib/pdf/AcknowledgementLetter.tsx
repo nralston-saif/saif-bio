@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import type { LetterData } from './letter-data'
 
 // Disable @react-pdf's automatic hyphenation — with justified text it inserted
@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 72,
     fontSize: 11,
     fontFamily: 'Times-Roman',
-    lineHeight: 1.4,
+    lineHeight: 1.15,
     color: '#000000',
   },
   header: {
@@ -39,9 +39,21 @@ const styles = StyleSheet.create({
   signatureSpace: {
     height: 40,
   },
+  signatureImage: {
+    width: 150,
+    height: 86,
+    marginTop: 4,
+    marginBottom: 2,
+  },
 })
 
-export default function AcknowledgementLetter({ data }: { data: LetterData }) {
+export default function AcknowledgementLetter({
+  data,
+  signature,
+}: {
+  data: LetterData
+  signature?: string | null
+}) {
   return (
     <Document
       title={`Gift acknowledgement - ${data.recipientLines[0] ?? data.orgLegalName}`}
@@ -77,7 +89,12 @@ export default function AcknowledgementLetter({ data }: { data: LetterData }) {
 
         <View>
           <Text>Sincerely,</Text>
-          <View style={styles.signatureSpace} />
+          {signature ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image src={signature} style={styles.signatureImage} />
+          ) : (
+            <View style={styles.signatureSpace} />
+          )}
           <Text>{data.signatoryName}</Text>
           <Text>{data.signatoryTitle}</Text>
         </View>
