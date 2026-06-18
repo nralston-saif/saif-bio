@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { createProposalWithLetter } from '@/lib/actions/grants-out'
-import ContactSelect from '@/components/ContactSelect'
+import ApplicantSelect from '@/components/ApplicantSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
 import { withBasePath } from '@/lib/basePath'
@@ -102,7 +102,7 @@ export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) 
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Applicant *</label>
-          <ContactSelect name="applicant_contact_id" contacts={contacts} required />
+          <ApplicantSelect name="applicant_contact_id" contacts={contacts} required />
         </div>
 
         <div>

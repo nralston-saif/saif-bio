@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createProposal } from '@/lib/actions/grants-out'
 import PageHeader from '@/components/PageHeader'
-import ContactSelect from '@/components/ContactSelect'
+import ApplicantSelect from '@/components/ApplicantSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
 import LetterUploadForm from './LetterUploadForm'
@@ -14,7 +14,7 @@ function ProposalFields({ contacts }: { contacts: Contact[] }) {
     <>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Applicant *</label>
-        <ContactSelect name="applicant_contact_id" contacts={contacts} required />
+        <ApplicantSelect name="applicant_contact_id" contacts={contacts} required />
       </div>
 
       <div>

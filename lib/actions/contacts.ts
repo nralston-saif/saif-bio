@@ -5,10 +5,15 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
 import { vendorFieldsFromInput, type NewVendorInput } from './vendor-fields'
+import { applicantFieldsFromInput, type NewApplicantInput } from './applicant-fields'
 import type { ContactType } from '@/lib/supabase/types/database'
 
 export type CreateVendorResult =
   | { ok: true; vendor: { id: string; display_name: string } }
+  | { ok: false; error: string }
+
+export type CreateApplicantResult =
+  | { ok: true; applicant: { id: string; display_name: string } }
   | { ok: false; error: string }
 
 function contactFields(formData: FormData) {
@@ -78,6 +83,41 @@ export async function createVendorInline(input: NewVendorInput): Promise<CreateV
     return { ok: true, vendor: { id: data.id, display_name: data.display_name } }
   } catch (err) {
     return { ok: false, error: err instanceof ActionError ? err.message : 'Could not create vendor' }
+  }
+}
+
+/**
+ * Create a grantee contact from the inline picker on the new-proposal form and
+ * return it (no redirect), so the caller can immediately select it without
+ * losing the form. Errors are returned, not thrown, so the inline UI can show
+ * them in place.
+ */
+export async function createApplicantInline(
+  input: NewApplicantInput
+): Promise<CreateApplicantResult> {
+  try {
+    await requireMemberId()
+    if (!input.display_name?.trim()) {
+      return { ok: false, error: 'Applicant name is required' }
+    }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('bio_contacts')
+      .insert(applicantFieldsFromInput(input))
+      .select('id, display_name')
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+
+    revalidatePath('/contacts')
+    revalidatePath('/grants-out')
+    return { ok: true, applicant: { id: data.id, display_name: data.display_name } }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof ActionError ? err.message : 'Could not create applicant',
+    }
   }
 }
 
