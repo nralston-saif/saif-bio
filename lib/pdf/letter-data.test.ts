@@ -9,7 +9,7 @@ import type {
 
 const settings: Settings = {
   id: 1,
-  org_legal_name: 'SAIF Bio Inc.',
+  org_legal_name: 'SAIFbio Inc.',
   ein: '12-3456789',
   address_line1: '123 Mission St',
   address_line2: null,
@@ -17,10 +17,10 @@ const settings: Settings = {
   state: 'CA',
   postal_code: '94105',
   fiscal_year_start_month: 1,
-  letter_signatory_name: 'Nick Ralston',
+  letter_signatory_name: 'Geoffrey Ralston',
   letter_signatory_title: 'President',
   letter_from_email: 'letters@saifbio.org',
-  letter_closing_text: 'Thank you for your generous support of our mission.',
+  letter_closing_text: 'Thank you again for your support.',
   created_at: '',
   updated_at: '',
 }
@@ -51,6 +51,15 @@ const contact: Contact = {
   updated_at: '',
 }
 
+const orgContact: Contact = {
+  ...contact,
+  contact_type: 'organization',
+  display_name: 'DALHAP Investments Ltd.',
+  org_name: 'DALHAP Investments Ltd.',
+  first_name: null,
+  last_name: null,
+}
+
 function makeContribution(overrides: Partial<Contribution>): Contribution {
   return {
     id: 'k1',
@@ -74,17 +83,28 @@ function makeContribution(overrides: Partial<Contribution>): Contribution {
 }
 
 describe('buildLetterData (IRS Pub 1771 branches)', () => {
-  it('cash gift with no goods/services includes the exact required statement', () => {
+  it('cash gift: short name, USD amount, deductibility, no-goods statement', () => {
     const data = buildLetterData(makeContribution({}), contact, settings, '2026-06-12')
 
-    expect(data.amountFormatted).toBe('$500.00')
-    expect(data.goodsServicesStatement).toBe(
-      'No goods or services were provided in exchange for this contribution.'
-    )
-    expect(data.receivedDate).toBe('May 1, 2026')
+    expect(data.orgLegalName).toBe('SAIFbio Inc.')
+    expect(data.orgShortName).toBe('SAIFbio')
     expect(data.ein).toBe('12-3456789')
-    expect(data.deductibilityStatement).toContain('501(c)(3)')
-    expect(data.deductibilityStatement).toContain('12-3456789')
+    expect(data.salutation).toBe('Dear Jane:')
+    expect(data.giftParagraph).toContain('$500.00 USD')
+    expect(data.giftParagraph).toContain('May 1, 2026')
+    expect(data.deductibilityParagraph).toContain('501(c)(3)')
+    expect(data.deductibilityParagraph).toContain('509(a)(1)')
+    expect(data.goodsServicesParagraph).toContain(
+      'no goods or services were provided in consideration for your gift'
+    )
+    expect(data.inKindNote).toBeNull()
+    expect(data.signatoryTitle).toBe('President, SAIFbio Inc.')
+  })
+
+  it('organization donor is thanked in the third person', () => {
+    const data = buildLetterData(makeContribution({}), orgContact, settings, '2026-06-12')
+    expect(data.salutation).toBe('Dear DALHAP Investments Ltd.:')
+    expect(data.giftParagraph).toContain('thank DALHAP Investments Ltd. for its donation')
   })
 
   it('quid pro quo gift includes description, good-faith estimate, and excess-deductibility language', () => {
@@ -100,10 +120,10 @@ describe('buildLetterData (IRS Pub 1771 branches)', () => {
       '2026-06-12'
     )
 
-    expect(data.goodsServicesStatement).toContain('two gala dinner tickets')
-    expect(data.goodsServicesStatement).toContain('$100.00')
-    expect(data.goodsServicesStatement).toContain('good-faith estimate')
-    expect(data.goodsServicesStatement).toContain(
+    expect(data.goodsServicesParagraph).toContain('two gala dinner tickets')
+    expect(data.goodsServicesParagraph).toContain('$100.00')
+    expect(data.goodsServicesParagraph).toContain('good-faith estimate')
+    expect(data.goodsServicesParagraph).toContain(
       'Only the amount of your contribution that exceeds the value of the goods or services provided is deductible'
     )
   })
@@ -120,12 +140,10 @@ describe('buildLetterData (IRS Pub 1771 branches)', () => {
       '2026-06-12'
     )
 
-    expect(data.amountFormatted).toBeNull()
-    expect(data.nonCashDescription).toContain('one used laboratory centrifuge')
-    expect(data.nonCashDescription).toContain('does not assign it a value')
-    expect(data.goodsServicesStatement).toBe(
-      'No goods or services were provided in exchange for this contribution.'
-    )
+    expect(data.giftParagraph).toContain('one used laboratory centrifuge')
+    expect(data.giftParagraph).not.toContain('$')
+    expect(data.inKindNote).toContain('does not assign it a value')
+    expect(data.goodsServicesParagraph).toContain('no goods or services were provided')
   })
 
   it('stock gift describes the securities and never states internal FMV', () => {
@@ -162,10 +180,9 @@ describe('buildLetterData (IRS Pub 1771 branches)', () => {
       stockDetail
     )
 
-    expect(data.amountFormatted).toBeNull()
-    expect(data.nonCashDescription).toContain('10 shares of Apple Inc. common stock')
-    expect(data.nonCashDescription).toContain('AAPL')
-    expect(data.nonCashDescription).toContain('does not assign it a value')
+    expect(data.giftParagraph).toContain('10 shares of Apple Inc. common stock')
+    expect(data.giftParagraph).toContain('AAPL')
+    expect(data.inKindNote).toContain('does not assign it a value')
     expect(JSON.stringify(data)).not.toContain('$1,978.50')
     expect(JSON.stringify(data)).not.toContain('$197.85')
   })

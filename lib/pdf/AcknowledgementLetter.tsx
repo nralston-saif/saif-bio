@@ -1,28 +1,30 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
 import type { LetterData } from './letter-data'
 
+// Disable @react-pdf's automatic hyphenation — with justified text it inserted
+// stray hyphens at line breaks (e.g. "gift.-"). Words now wrap whole.
+Font.registerHyphenationCallback((word) => [word])
+
+// Mirrors SAIFbio's outside-counsel gift-acknowledgement template: a formal
+// serif (Times) letter, centered letterhead with FEIN, justified body.
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 64,
-    paddingBottom: 64,
+    paddingTop: 72,
+    paddingBottom: 72,
     paddingHorizontal: 72,
     fontSize: 11,
-    fontFamily: 'Helvetica',
-    lineHeight: 1.5,
-    color: '#1a1a1a',
+    fontFamily: 'Times-Roman',
+    lineHeight: 1.4,
+    color: '#000000',
   },
-  orgHeader: {
-    marginBottom: 24,
+  header: {
+    marginBottom: 28,
     textAlign: 'center',
   },
   orgName: {
-    fontSize: 16,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 4,
-  },
-  orgAddress: {
-    fontSize: 9,
-    color: '#555555',
+    fontSize: 12,
+    fontFamily: 'Times-Bold',
+    marginBottom: 2,
   },
   date: {
     marginBottom: 18,
@@ -30,87 +32,55 @@ const styles = StyleSheet.create({
   block: {
     marginBottom: 14,
   },
-  signature: {
-    marginTop: 36,
+  body: {
+    marginBottom: 14,
+    textAlign: 'justify',
   },
-  footer: {
-    position: 'absolute',
-    bottom: 36,
-    left: 72,
-    right: 72,
-    fontSize: 8,
-    color: '#888888',
-    textAlign: 'center',
+  signatureSpace: {
+    height: 40,
   },
 })
 
 export default function AcknowledgementLetter({ data }: { data: LetterData }) {
   return (
     <Document
-      title={`Contribution acknowledgement - ${data.donorName}`}
+      title={`Gift acknowledgement - ${data.recipientLines[0] ?? data.orgLegalName}`}
       author={data.orgLegalName}
     >
       <Page size="LETTER" style={styles.page}>
-        <View style={styles.orgHeader}>
+        <View style={styles.header}>
           <Text style={styles.orgName}>{data.orgLegalName}</Text>
-          {data.orgAddressLines.map((line) => (
-            <Text key={line} style={styles.orgAddress}>
-              {line}
-            </Text>
+          {data.orgAddressLines.map((line, i) => (
+            <Text key={`addr-${i}`}>{line}</Text>
           ))}
-          <Text style={styles.orgAddress}>EIN: {data.ein}</Text>
+          <Text>FEIN: {data.ein}</Text>
         </View>
 
         <Text style={styles.date}>{data.letterDate}</Text>
 
         <View style={styles.block}>
-          <Text>{data.donorName}</Text>
-          {data.donorAddressLines.map((line) => (
-            <Text key={line}>{line}</Text>
+          {data.recipientLines.map((line, i) => (
+            <Text key={`rcpt-${i}`}>{line}</Text>
           ))}
         </View>
 
         <View style={styles.block}>
-          <Text>Dear {data.donorName},</Text>
+          <Text>{data.salutation}</Text>
         </View>
 
-        <View style={styles.block}>
-          {data.amountFormatted ? (
-            <Text>
-              On behalf of {data.orgLegalName}, thank you for your generous contribution of{' '}
-              {data.amountFormatted}, received on {data.receivedDate}.
-            </Text>
-          ) : (
-            <Text>
-              On behalf of {data.orgLegalName}, thank you for your generous non-cash contribution,
-              received on {data.receivedDate}, of the following property:{' '}
-              {data.nonCashDescription}
-            </Text>
-          )}
-        </View>
+        <Text style={styles.body}>{data.giftParagraph}</Text>
+        {data.inKindNote ? <Text style={styles.body}>{data.inKindNote}</Text> : null}
+        <Text style={styles.body}>{data.deductibilityParagraph}</Text>
+        <Text style={styles.body}>{data.goodsServicesParagraph}</Text>
 
-        <View style={styles.block}>
-          <Text>{data.goodsServicesStatement}</Text>
-        </View>
+        <Text style={styles.block}>{data.closingLine}</Text>
 
-        <View style={styles.block}>
-          <Text>{data.deductibilityStatement}</Text>
-        </View>
-
-        <View style={styles.block}>
-          <Text>{data.closingText}</Text>
-        </View>
-
-        <View style={styles.signature}>
+        <View>
           <Text>Sincerely,</Text>
-          <Text style={{ marginTop: 24, fontFamily: 'Helvetica-Bold' }}>{data.signatoryName}</Text>
-          {data.signatoryTitle ? <Text>{data.signatoryTitle}</Text> : null}
-          <Text>{data.orgLegalName}</Text>
+          <View style={styles.signatureSpace} />
+          <Text>{data.signatoryName}</Text>
+          <Text>{data.signatoryTitle}</Text>
         </View>
-
-        <Text style={styles.footer}>
-          {data.orgLegalName} · EIN {data.ein}
-        </Text>
       </Page>
     </Document>
   )

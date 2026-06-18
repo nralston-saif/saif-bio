@@ -25,3 +25,6 @@ tsconfig.tsbuildinfo
 # supabase
 supabase/.branches
 supabase/.temp
+
+# Confidential reference docs dropped in the repo root (e.g. donor letters)
+/*.pdf
