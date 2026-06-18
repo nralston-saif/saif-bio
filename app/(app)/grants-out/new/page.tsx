@@ -6,6 +6,7 @@ import ApplicantSelect from '@/components/ApplicantSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
 import LetterUploadForm from './LetterUploadForm'
+import { PROGRAM_AREAS } from '@/lib/grants/program-areas'
 
 type Contact = { id: string; display_name: string }
 
@@ -36,7 +37,14 @@ function ProposalFields({ contacts }: { contacts: Contact[] }) {
           <label htmlFor="program_area" className="block text-sm font-medium text-gray-700 mb-1">
             Program area
           </label>
-          <input id="program_area" name="program_area" type="text" className="input" />
+          <select id="program_area" name="program_area" defaultValue="" className="input">
+            <option value="">Select…</option>
+            {PROGRAM_AREAS.map((area) => (
+              <option key={area} value={area}>
+                {area}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Amount requested</label>
@@ -50,6 +58,7 @@ function ProposalFields({ contacts }: { contacts: Contact[] }) {
             Received date
           </label>
           <input id="received_date" name="received_date" type="date" className="input" />
+          <p className="mt-1 text-xs text-gray-400">Optional — leave blank if not yet received.</p>
         </div>
         <div>
           <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">

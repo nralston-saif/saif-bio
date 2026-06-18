@@ -13,6 +13,22 @@ interface MoneyInputProps {
   maxDecimals?: number
 }
 
+/**
+ * Reformat a whole-dollar entry with thousands separators on blur:
+ * "1000" -> "1,000.00". Leaves blank or unparseable input untouched so the
+ * pattern validation can still flag it. parseDollarsToCents strips the commas.
+ */
+function formatWholeDollars(raw: string): string {
+  const cleaned = raw.replace(/[$,\s]/g, '')
+  if (cleaned === '') return ''
+  const n = Number(cleaned)
+  if (!Number.isFinite(n) || n < 0) return raw
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
+}
+
 /** Dollar-amount text input. Submit value is dollars; parse server-side with parseDollarsToCents. */
 export default function MoneyInput({
   name,
@@ -25,6 +41,10 @@ export default function MoneyInput({
   maxDecimals = 2,
 }: MoneyInputProps) {
   const controlled = value !== undefined
+  // Only the whole-dollar (2-decimal) case gets comma formatting; per-share
+  // inputs use more decimals and shouldn't be reformatted. Controlled inputs
+  // are owned by their parent, so we don't rewrite their value here.
+  const autoFormat = !controlled && !readOnly && maxDecimals === 2
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-900 text-sm">$</span>
@@ -35,6 +55,9 @@ export default function MoneyInput({
         {...(controlled
           ? { value, onChange: (e) => onChange?.(e.target.value) }
           : { defaultValue })}
+        {...(autoFormat
+          ? { onBlur: (e) => (e.currentTarget.value = formatWholeDollars(e.currentTarget.value)) }
+          : {})}
         required={required}
         readOnly={readOnly}
         placeholder={placeholder ?? '0.00'}
