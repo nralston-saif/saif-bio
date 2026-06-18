@@ -217,7 +217,7 @@ export default async function GrantsPage({
     <div>
       <PageHeader
         title="Grants"
-        description="Proposals received and grants awarded by SAIF Bio."
+        description="Proposals received and grants awarded by SAIFbio."
         action={{ href: '/grants-out/new', label: 'New proposal' }}
       >
         <Link href="/grants-out/awards/new" className="btn btn-secondary">

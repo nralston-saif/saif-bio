@@ -38,7 +38,7 @@ export default function NavShell({ children }: { children: ReactNode }) {
               <span className="font-light">S</span>
               <span className="font-bold">AI</span>
               <span className="font-light">F</span>
-              <span className="font-semibold text-green-700 ml-1">Bio</span>
+              <span className="font-semibold text-green-700">bio</span>
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => (
@@ -56,12 +56,22 @@ export default function NavShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Back to the saif-monorepo CRM. Plain <a> (not next/link) so it
+                escapes the /bio zone instead of resolving under basePath. */}
+            <a
+              href="/dashboard"
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1 whitespace-nowrap"
+            >
+              <span aria-hidden>&larr;</span> SAIF Internal
+            </a>
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
         {/* Mobile nav */}
         <nav className="md:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">

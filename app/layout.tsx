@@ -8,8 +8,8 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'SAIF Bio',
-  description: 'SAIF Bio internal operations',
+  title: 'SAIFbio',
+  description: 'SAIFbio internal operations',
 }
 
 export default function RootLayout({

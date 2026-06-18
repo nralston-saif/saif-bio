@@ -38,7 +38,7 @@ export default function LoginPage() {
             <span className="font-light">S</span>
             <span className="font-bold">AI</span>
             <span className="font-light">F</span>
-            <span className="font-semibold text-green-700 ml-2">Bio</span>
+            <span className="font-semibold text-green-700">bio</span>
           </h1>
           <p className="text-[#666666]">Internal operations</p>
         </div>

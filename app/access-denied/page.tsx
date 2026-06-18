@@ -14,7 +14,7 @@ export default function AccessDeniedPage() {
         </div>
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Access denied</h1>
         <p className="text-gray-500 text-sm">
-          Your account is not authorized for SAIF Bio. Contact a partner if you believe this is a
+          Your account is not authorized for SAIFbio. Contact a partner if you believe this is a
           mistake.
         </p>
       </div>
