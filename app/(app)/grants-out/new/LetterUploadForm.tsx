@@ -6,6 +6,7 @@ import { createProposalWithLetter } from '@/lib/actions/grants-out'
 import ApplicantSelect from '@/components/ApplicantSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
+import { PILLARS, PILLAR_LABELS } from '@/lib/supabase/types/database'
 import { withBasePath } from '@/lib/basePath'
 
 type Contact = { id: string; display_name: string }
@@ -26,7 +27,13 @@ function isDocx(file: File): boolean {
   return file.type === DOCX_MIME || file.name.toLowerCase().endsWith('.docx')
 }
 
-export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) {
+export default function LetterUploadForm({
+  contacts,
+  enteredDateDisplay,
+}: {
+  contacts: Contact[]
+  enteredDateDisplay: string
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<PreviewState>({ kind: 'none' })
 
@@ -74,7 +81,7 @@ export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) 
   const hasFile = preview.kind !== 'none'
 
   return (
-    <div className={hasFile ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}>
+    <div className={hasFile ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'max-w-2xl'}>
       {/* Form column */}
       <form action={createProposalWithLetter} className="card p-6 space-y-5">
         <div>
@@ -119,25 +126,29 @@ export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) 
           <textarea id="summary" name="summary" rows={4} className="input" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="program_area" className="block text-sm font-medium text-gray-700 mb-1">
-              Program area
-            </label>
-            <input id="program_area" name="program_area" type="text" className="input" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount requested</label>
-            <MoneyInput name="amount_requested" />
+        <div>
+          <span className="block text-sm font-medium text-gray-700 mb-2">Pillars</span>
+          <div className="flex flex-wrap gap-4">
+            {PILLARS.map((p) => (
+              <label key={p} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  name="pillars"
+                  value={p}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                {PILLAR_LABELS[p]}
+              </label>
+            ))}
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="received_date" className="block text-sm font-medium text-gray-700 mb-1">
-              Received date
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount Requested/Suggested *
             </label>
-            <input id="received_date" name="received_date" type="date" className="input" />
+            <MoneyInput name="amount_requested" required />
           </div>
           <div>
             <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">
@@ -150,6 +161,21 @@ export default function LetterUploadForm({ contacts }: { contacts: Contact[] }) 
               placeholder="e.g. email, referral"
               className="input"
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="received_date" className="block text-sm font-medium text-gray-700 mb-1">
+              Received date
+            </label>
+            <input id="received_date" name="received_date" type="date" className="input" />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-gray-700 mb-1">Entered</span>
+            <div className="input bg-gray-50 text-gray-600 cursor-not-allowed">
+              {enteredDateDisplay}
+            </div>
           </div>
         </div>
 

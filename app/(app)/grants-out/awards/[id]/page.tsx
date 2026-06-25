@@ -1,17 +1,20 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { addDisbursement, addGranteeReport } from '@/lib/actions/grants-out'
+import { addGranteeReport } from '@/lib/actions/grants-out'
 import PageHeader from '@/components/PageHeader'
 import StatusBadge from '@/components/StatusBadge'
 import SubmitButton from '@/components/SubmitButton'
-import MoneyInput from '@/components/MoneyInput'
 import AttachmentsPanel from '@/components/AttachmentsPanel'
 import { formatCents } from '@/lib/utils/money'
 import { formatDate, daysUntil } from '@/lib/utils/dates'
 import AwardStatusSelect from './AwardStatusSelect'
 import DisbursementActions from './DisbursementActions'
 import ReportActions from './ReportActions'
+import AddDisbursementForm from './AddDisbursementForm'
+import ReportFileChips from './ReportFileChips'
+import GrantTabs from '@/components/GrantTabs'
+import type { Attachment } from '@/lib/supabase/types/database'
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -75,6 +78,28 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
     .filter((d) => d.status === 'paid')
     .reduce((sum, d) => sum + d.amount_cents, 0)
 
+  const committedTotal = (disbursements ?? [])
+    .filter((d) => d.status === 'paid' || d.status === 'scheduled')
+    .reduce((sum, d) => sum + d.amount_cents, 0)
+
+  const reportIds = (reports ?? []).map((r) => r.id)
+  const { data: reportAttachments } =
+    reportIds.length === 0
+      ? { data: [] as Attachment[] }
+      : await supabase
+          .from('bio_attachments')
+          .select('*')
+          .eq('entity_type', 'grantee_report')
+          .in('entity_id', reportIds)
+          .order('created_at', { ascending: false })
+
+  const filesByReport = new Map<string, Attachment[]>()
+  for (const a of reportAttachments ?? []) {
+    const list = filesByReport.get(a.entity_id) ?? []
+    list.push(a)
+    filesByReport.set(a.entity_id, list)
+  }
+
   const revalidatePath = `/grants-out/awards/${award.id}`
 
   return (
@@ -82,6 +107,12 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         title={grantee?.display_name ?? 'Grant award'}
         description={award.purpose ?? undefined}
+      />
+
+      <GrantTabs
+        proposalId={proposal?.id ?? null}
+        awardId={award.id}
+        active="award"
       />
 
       <div className="space-y-6">
@@ -194,38 +225,11 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
 
-          <form
-            action={addDisbursement.bind(null, award.id)}
-            className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4"
-          >
-            <div className="w-36">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Amount *</label>
-              <MoneyInput name="amount" required />
-            </div>
-            <div>
-              <label
-                htmlFor="scheduled_date"
-                className="block text-xs font-medium text-gray-500 mb-1"
-              >
-                Scheduled date
-              </label>
-              <input id="scheduled_date" name="scheduled_date" type="date" className="input" />
-            </div>
-            <div>
-              <label htmlFor="method" className="block text-xs font-medium text-gray-500 mb-1">
-                Method
-              </label>
-              <select id="method" name="method" defaultValue="" className="input">
-                <option value="">—</option>
-                <option value="check">Check</option>
-                <option value="ach">ACH</option>
-                <option value="wire">Wire</option>
-              </select>
-            </div>
-            <SubmitButton pendingLabel="Adding…" className="btn btn-secondary">
-              Add disbursement
-            </SubmitButton>
-          </form>
+          <AddDisbursementForm
+            awardId={award.id}
+            awardedCents={award.amount_awarded_cents}
+            committedCents={committedTotal}
+          />
         </div>
 
         {/* Grantee reports */}
@@ -243,6 +247,7 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
                     <th className="py-2 pr-4 font-medium">Due</th>
                     <th className="py-2 pr-4 font-medium">Received</th>
                     <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">Files</th>
                     <th className="py-2 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
@@ -252,8 +257,6 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
                       daysUntil(report.due_date) < 0 &&
                       report.status !== 'received' &&
                       report.status !== 'waived'
-                    const isActionable =
-                      report.status === 'upcoming' || report.status === 'overdue'
                     return (
                       <tr key={report.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="py-2.5 pr-4 text-gray-600 capitalize">
@@ -272,10 +275,19 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
                         <td className="py-2.5 pr-4">
                           <StatusBadge status={report.status} />
                         </td>
+                        <td className="py-2.5 pr-4">
+                          <ReportFileChips
+                            reportId={report.id}
+                            awardId={award.id}
+                            attachments={filesByReport.get(report.id) ?? []}
+                          />
+                        </td>
                         <td className="py-2.5 text-right">
-                          {isActionable && (
-                            <ReportActions reportId={report.id} awardId={award.id} />
-                          )}
+                          <ReportActions
+                            reportId={report.id}
+                            awardId={award.id}
+                            status={report.status}
+                          />
                         </td>
                       </tr>
                     )
@@ -310,6 +322,20 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
                 Notes
               </label>
               <input id="notes" name="notes" type="text" className="input" />
+            </div>
+            <div>
+              <label
+                htmlFor="report_file"
+                className="block text-xs font-medium text-gray-500 mb-1"
+              >
+                File (optional)
+              </label>
+              <input
+                id="report_file"
+                name="file"
+                type="file"
+                className="block text-xs text-gray-700 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+              />
             </div>
             <SubmitButton pendingLabel="Adding…" className="btn btn-secondary">
               Add report

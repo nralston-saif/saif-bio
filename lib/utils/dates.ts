@@ -31,6 +31,20 @@ export function todayISO(): string {
   return `${y}-${m}-${d}`
 }
 
+/**
+ * Today as YYYY-MM-DD in the America/Los_Angeles timezone — i.e. the local
+ * Pacific calendar day regardless of where the server runs. en-CA gives us
+ * the ISO-style format directly.
+ */
+export function todayPacificISO(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
 /** Days from today until a YYYY-MM-DD date (negative if past) */
 export function daysUntil(date: string): number {
   const [year, month, day] = date.split('-').map(Number)

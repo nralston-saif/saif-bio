@@ -5,12 +5,20 @@ import PageHeader from '@/components/PageHeader'
 import ApplicantSelect from '@/components/ApplicantSelect'
 import MoneyInput from '@/components/MoneyInput'
 import SubmitButton from '@/components/SubmitButton'
+import { PILLARS, PILLAR_LABELS } from '@/lib/supabase/types/database'
+import { todayPacificISO } from '@/lib/utils/dates'
+import { formatDate } from '@/lib/utils/dates'
 import LetterUploadForm from './LetterUploadForm'
-import { PROGRAM_AREAS } from '@/lib/grants/program-areas'
 
 type Contact = { id: string; display_name: string }
 
-function ProposalFields({ contacts }: { contacts: Contact[] }) {
+function ProposalFields({
+  contacts,
+  enteredDateDisplay,
+}: {
+  contacts: Contact[]
+  enteredDateDisplay: string
+}) {
   return (
     <>
       <div>
@@ -32,33 +40,29 @@ function ProposalFields({ contacts }: { contacts: Contact[] }) {
         <textarea id="summary" name="summary" rows={4} className="input" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="program_area" className="block text-sm font-medium text-gray-700 mb-1">
-            Program area
-          </label>
-          <select id="program_area" name="program_area" defaultValue="" className="input">
-            <option value="">Select…</option>
-            {PROGRAM_AREAS.map((area) => (
-              <option key={area} value={area}>
-                {area}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Amount requested</label>
-          <MoneyInput name="amount_requested" />
+      <div>
+        <span className="block text-sm font-medium text-gray-700 mb-2">Pillars</span>
+        <div className="flex flex-wrap gap-4">
+          {PILLARS.map((p) => (
+            <label key={p} className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="pillars"
+                value={p}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              {PILLAR_LABELS[p]}
+            </label>
+          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="received_date" className="block text-sm font-medium text-gray-700 mb-1">
-            Received date
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Amount Requested/Suggested *
           </label>
-          <input id="received_date" name="received_date" type="date" className="input" />
-          <p className="mt-1 text-xs text-gray-400">Optional — leave blank if not yet received.</p>
+          <MoneyInput name="amount_requested" required />
         </div>
         <div>
           <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">
@@ -71,6 +75,21 @@ function ProposalFields({ contacts }: { contacts: Contact[] }) {
             placeholder="e.g. email, referral"
             className="input"
           />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="received_date" className="block text-sm font-medium text-gray-700 mb-1">
+            Received date
+          </label>
+          <input id="received_date" name="received_date" type="date" className="input" />
+        </div>
+        <div>
+          <span className="block text-sm font-medium text-gray-700 mb-1">Entered</span>
+          <div className="input bg-gray-50 text-gray-600 cursor-not-allowed">
+            {enteredDateDisplay}
+          </div>
         </div>
       </div>
     </>
@@ -90,6 +109,8 @@ export default async function NewProposalPage({
     .from('bio_contacts')
     .select('id, display_name')
     .order('display_name')
+
+  const enteredDateDisplay = formatDate(todayPacificISO())
 
   const tabs = [
     { key: 'manual' as const, label: 'Manual entry', href: '/grants-out/new?tab=manual' },
@@ -129,7 +150,7 @@ export default async function NewProposalPage({
 
       {activeTab === 'manual' ? (
         <form action={createProposal} className="card p-6 space-y-5">
-          <ProposalFields contacts={contacts ?? []} />
+          <ProposalFields contacts={contacts ?? []} enteredDateDisplay={enteredDateDisplay} />
 
           <div className="flex items-center gap-3 pt-2">
             <SubmitButton pendingLabel="Creating…">Create proposal</SubmitButton>
@@ -139,7 +160,7 @@ export default async function NewProposalPage({
           </div>
         </form>
       ) : (
-        <LetterUploadForm contacts={contacts ?? []} />
+        <LetterUploadForm contacts={contacts ?? []} enteredDateDisplay={enteredDateDisplay} />
       )}
     </div>
   )

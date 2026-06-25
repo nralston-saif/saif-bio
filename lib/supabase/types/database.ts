@@ -34,6 +34,13 @@ export type ExpensePaymentMethod = 'card' | 'check' | 'ach' | 'wire' | 'reimburs
 export type ExpenseStatus = 'pending' | 'paid' | 'reimbursed'
 export type ProposalStatus = 'received' | 'in_review' | 'decided' | 'withdrawn'
 export type ProposalDecision = 'approved' | 'declined'
+export type Pillar = 'detect' | 'prevent' | 'defend'
+export const PILLARS: readonly Pillar[] = ['detect', 'prevent', 'defend'] as const
+export const PILLAR_LABELS: Record<Pillar, string> = {
+  detect: 'Detect',
+  prevent: 'Prevent',
+  defend: 'Defend',
+}
 export type Vote = 'yes' | 'no' | 'maybe'
 export type GrantOutStatus = 'awarded' | 'active' | 'completed' | 'terminated'
 export type DisbursementStatus = 'scheduled' | 'paid' | 'cancelled'
@@ -202,9 +209,10 @@ export type GrantProposal = TimestampedRow & {
   applicant_contact_id: string
   title: string
   summary: string | null
-  program_area: string | null
+  pillars: Pillar[]
   amount_requested_cents: number | null
   received_date: string | null
+  entered_date: string
   source: string | null
   status: ProposalStatus
   decision: ProposalDecision | null

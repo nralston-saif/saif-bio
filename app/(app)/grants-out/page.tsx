@@ -23,11 +23,13 @@ function ProposalSection({
   proposals,
   contactNames,
   tallies,
+  awardIdByProposal,
 }: {
   title: string
   proposals: GrantProposal[]
   contactNames: Map<string, string>
   tallies: Map<string, VoteTally>
+  awardIdByProposal: Map<string, string>
 }) {
   return (
     <section>
@@ -48,12 +50,20 @@ function ProposalSection({
               </tr>
             </thead>
             <tbody>
-              {proposals.map((p) => (
-                <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+              {proposals.map((p) => {
+                const awardId = awardIdByProposal.get(p.id)
+                const href = awardId
+                  ? `/grants-out/awards/${awardId}`
+                  : `/grants-out/proposals/${p.id}`
+                return (
+                <tr
+                  key={p.id}
+                  className="relative border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-4 py-3">
                     <Link
-                      href={`/grants-out/proposals/${p.id}`}
-                      className="font-medium text-gray-900 hover:underline"
+                      href={href}
+                      className="font-medium text-gray-900 hover:underline before:absolute before:inset-0 before:content-['']"
                     >
                       {p.title}
                     </Link>
@@ -73,7 +83,8 @@ function ProposalSection({
                   </td>
                   <td className="px-4 py-3 text-gray-600">{tallyLabel(tallies.get(p.id))}</td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -84,16 +95,22 @@ function ProposalSection({
 
 async function ProposalsTab() {
   const supabase = await createClient()
-  const [{ data: proposals }, { data: reviews }, { data: contacts }] = await Promise.all([
+  const [{ data: proposals }, { data: reviews }, { data: contacts }, { data: awards }] = await Promise.all([
     supabase
       .from('bio_grant_proposals')
       .select('*')
       .order('received_date', { ascending: false }),
     supabase.from('bio_proposal_reviews').select('proposal_id, vote, recused'),
     supabase.from('bio_contacts').select('id, display_name'),
+    supabase.from('bio_grants_out').select('id, proposal_id').not('proposal_id', 'is', null),
   ])
 
   const contactNames = new Map((contacts ?? []).map((c) => [c.id, c.display_name]))
+  const awardIdByProposal = new Map(
+    (awards ?? [])
+      .filter((a): a is { id: string; proposal_id: string } => a.proposal_id !== null)
+      .map((a) => [a.proposal_id, a.id])
+  )
 
   const tallies = new Map<string, VoteTally>()
   for (const review of reviews ?? []) {
@@ -120,18 +137,21 @@ async function ProposalsTab() {
         proposals={received}
         contactNames={contactNames}
         tallies={tallies}
+        awardIdByProposal={awardIdByProposal}
       />
       <ProposalSection
         title="In review"
         proposals={inReview}
         contactNames={contactNames}
         tallies={tallies}
+        awardIdByProposal={awardIdByProposal}
       />
       <ProposalSection
         title="Decided / Withdrawn"
         proposals={closed}
         contactNames={contactNames}
         tallies={tallies}
+        awardIdByProposal={awardIdByProposal}
       />
     </div>
   )
@@ -172,11 +192,14 @@ async function AwardsTab() {
         </thead>
         <tbody>
           {awards.map((a) => (
-            <tr key={a.id} className="border-b border-gray-50 hover:bg-gray-50">
+            <tr
+              key={a.id}
+              className="relative border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+            >
               <td className="px-4 py-3">
                 <Link
                   href={`/grants-out/awards/${a.id}`}
-                  className="font-medium text-gray-900 hover:underline"
+                  className="font-medium text-gray-900 hover:underline before:absolute before:inset-0 before:content-['']"
                 >
                   {contactNames.get(a.grantee_contact_id) ?? 'Unknown grantee'}
                 </Link>

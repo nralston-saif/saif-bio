@@ -36,13 +36,14 @@ const STYLES: Record<string, string> = {
   maybe: 'bg-yellow-100 text-yellow-800',
 }
 
-export default function StatusBadge({ status }: { status: string }) {
-  const style = STYLES[status] ?? 'bg-gray-100 text-gray-700'
+export default function StatusBadge({ status }: { status: string | null | undefined }) {
+  const safe = typeof status === 'string' && status.length > 0 ? status : 'unknown'
+  const style = STYLES[safe] ?? 'bg-gray-100 text-gray-700'
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${style}`}
     >
-      {status.replace(/_/g, ' ')}
+      {safe.replace(/_/g, ' ')}
     </span>
   )
 }

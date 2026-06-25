@@ -114,9 +114,10 @@ async function main() {
       applicant_contact_id: grantee.id,
       title: 'Community biosafety training program',
       summary: 'Twelve-month training program for community lab biosafety officers.',
-      program_area: 'Biosafety',
+      pillars: ['detect', 'prevent'],
       amount_requested_cents: 5_000_000,
       received_date: '2026-05-20',
+      entered_date: '2026-05-20',
       source: 'email',
       status: 'in_review',
     })

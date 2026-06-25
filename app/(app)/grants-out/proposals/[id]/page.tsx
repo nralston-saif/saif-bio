@@ -9,9 +9,11 @@ import SubmitButton from '@/components/SubmitButton'
 import AttachmentsPanel from '@/components/AttachmentsPanel'
 import { formatCents, centsToDollarString } from '@/lib/utils/money'
 import { formatDate } from '@/lib/utils/dates'
+import { PILLAR_LABELS } from '@/lib/supabase/types/database'
 import MyReviewForm from './MyReviewForm'
 import DecisionForm from './DecisionForm'
 import MemoCard from './MemoCard'
+import GrantTabs from '@/components/GrantTabs'
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime()
@@ -108,6 +110,12 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     <div>
       <PageHeader title={proposal.title} description={applicant?.display_name ?? undefined} />
 
+      <GrantTabs
+        proposalId={proposal.id}
+        awardId={award?.id ?? null}
+        active="proposal"
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
@@ -128,13 +136,32 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
                 }
               />
               <DetailRow
-                label="Amount requested"
+                label="Amount Requested/Suggested"
                 value={
                   <span className="tabular-nums">{formatCents(proposal.amount_requested_cents)}</span>
                 }
               />
-              <DetailRow label="Program area" value={proposal.program_area ?? '—'} />
+              <DetailRow
+                label="Pillars"
+                value={
+                  proposal.pillars.length === 0 ? (
+                    '—'
+                  ) : (
+                    <span className="flex flex-wrap gap-1.5">
+                      {proposal.pillars.map((p) => (
+                        <span
+                          key={p}
+                          className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700"
+                        >
+                          {PILLAR_LABELS[p]}
+                        </span>
+                      ))}
+                    </span>
+                  )
+                }
+              />
               <DetailRow label="Received" value={formatDate(proposal.received_date)} />
+              <DetailRow label="Entered" value={formatDate(proposal.entered_date)} />
               <DetailRow label="Source" value={proposal.source ?? '—'} />
             </dl>
             {proposal.summary && (
@@ -308,14 +335,6 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
                 <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">
                   {proposal.decision_notes}
                 </p>
-              )}
-              {award && (
-                <Link
-                  href={`/grants-out/awards/${award.id}`}
-                  className="text-sm text-gray-900 underline hover:no-underline"
-                >
-                  View award →
-                </Link>
               )}
             </div>
           )}

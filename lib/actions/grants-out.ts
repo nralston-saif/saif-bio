@@ -5,16 +5,21 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
 import { parseDollarsToCents } from '@/lib/utils/money'
-import { todayISO } from '@/lib/utils/dates'
+import { todayISO, todayPacificISO } from '@/lib/utils/dates'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
+  Database,
+  DisbursementStatus,
   GranteeReportStatus,
   GranteeReportType,
   GrantOutStatus,
+  Pillar,
   ProposalDecision,
   ProposalMemo,
   ProposalStatus,
   Vote,
 } from '@/lib/supabase/types/database'
+import { PILLARS } from '@/lib/supabase/types/database'
 import { MEMO_RUBRIC_FIELDS, isMemoComplete } from '@/lib/grants/memo'
 
 function parseOptionalCents(formData: FormData, key: string): number | null {
@@ -27,15 +32,40 @@ function parseOptionalCents(formData: FormData, key: string): number | null {
 
 // --- Proposals ---
 
+function pillarsFromForm(formData: FormData): Pillar[] {
+  const allowed = new Set<string>(PILLARS)
+  const raw = formData.getAll('pillars').filter((v): v is string => typeof v === 'string')
+  const picked = raw.filter((v) => allowed.has(v)) as Pillar[]
+  // De-dupe while preserving order
+  return Array.from(new Set(picked))
+}
+
 function proposalFields(formData: FormData) {
+  const amountCents = parseOptionalCents(formData, 'amount_requested')
+  if (amountCents === null) {
+    throw new ActionError('Amount requested/suggested is required')
+  }
   return {
     applicant_contact_id: requiredString(formData, 'applicant_contact_id'),
     title: requiredString(formData, 'title'),
     summary: optionalString(formData, 'summary'),
-    program_area: optionalString(formData, 'program_area'),
-    amount_requested_cents: parseOptionalCents(formData, 'amount_requested'),
+    pillars: pillarsFromForm(formData),
+    amount_requested_cents: amountCents,
     received_date: optionalString(formData, 'received_date'),
     source: optionalString(formData, 'source'),
+  }
+}
+
+/**
+ * Insert payload for a brand-new proposal. Adds the create-only stamps
+ * (entered_date and initial status) so the row is well-formed even on
+ * backends that don't honor DB-level defaults (i.e. demo mode).
+ */
+function newProposalFields(formData: FormData) {
+  return {
+    ...proposalFields(formData),
+    entered_date: todayPacificISO(),
+    status: 'received' as ProposalStatus,
   }
 }
 
@@ -45,7 +75,7 @@ export async function createProposal(formData: FormData) {
 
   const { data, error } = await supabase
     .from('bio_grant_proposals')
-    .insert(proposalFields(formData))
+    .insert(newProposalFields(formData))
     .select('id')
     .single()
 
@@ -76,7 +106,7 @@ export async function createProposalWithLetter(formData: FormData) {
 
   const { data: proposal, error } = await supabase
     .from('bio_grant_proposals')
-    .insert(proposalFields(formData))
+    .insert(newProposalFields(formData))
     .select('id')
     .single()
   if (error) throw new ActionError(error.message)
@@ -337,6 +367,7 @@ export async function createAward(formData: FormData) {
       restriction: optionalString(formData, 'restriction'),
       agreement_signed_date: optionalString(formData, 'agreement_signed_date'),
       notes: optionalString(formData, 'notes'),
+      status: 'awarded' as GrantOutStatus,
     })
     .select('id')
     .single()
@@ -372,6 +403,7 @@ export async function addDisbursement(awardId: string, formData: FormData) {
     amount_cents: amountCents,
     scheduled_date: optionalString(formData, 'scheduled_date'),
     method: optionalString(formData, 'method') as 'check' | 'ach' | 'wire' | null,
+    status: 'scheduled' as DisbursementStatus,
   })
 
   if (error) throw new ActionError(error.message)
@@ -459,18 +491,93 @@ export async function cancelDisbursement(disbursementId: string, awardId: string
 
 // --- Grantee reports ---
 
+const MAX_REPORT_FILE_BYTES = 10 * 1024 * 1024
+
+/** Upload a grantee report document and write the matching bio_attachments row. */
+async function attachReportFile(
+  supabase: SupabaseClient<Database>,
+  memberId: string,
+  reportId: string,
+  file: File
+): Promise<void> {
+  if (file.size > MAX_REPORT_FILE_BYTES) {
+    throw new ActionError('File exceeds 10 MB limit')
+  }
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `grantee_report/${reportId}/${crypto.randomUUID()}-${safeName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(storagePath, file, { contentType: file.type || undefined })
+  if (uploadError) throw new ActionError(`Upload failed: ${uploadError.message}`)
+
+  const { error: insertError } = await supabase.from('bio_attachments').insert({
+    entity_type: 'grantee_report',
+    entity_id: reportId,
+    storage_path: storagePath,
+    file_name: file.name,
+    mime_type: file.type || null,
+    size_bytes: file.size,
+    uploaded_by: memberId,
+  })
+  if (insertError) {
+    await supabase.storage.from('documents').remove([storagePath])
+    throw new ActionError(`Failed to record attachment: ${insertError.message}`)
+  }
+}
+
 export async function addGranteeReport(awardId: string, formData: FormData) {
-  await requireMemberId()
+  const memberId = await requireMemberId()
   const supabase = await createClient()
 
-  const { error } = await supabase.from('bio_grantee_reports').insert({
-    grant_out_id: awardId,
-    report_type: requiredString(formData, 'report_type') as GranteeReportType,
-    due_date: requiredString(formData, 'due_date'),
-    notes: optionalString(formData, 'notes'),
-  })
+  const { data: report, error } = await supabase
+    .from('bio_grantee_reports')
+    .insert({
+      grant_out_id: awardId,
+      report_type: requiredString(formData, 'report_type') as GranteeReportType,
+      due_date: requiredString(formData, 'due_date'),
+      notes: optionalString(formData, 'notes'),
+      status: 'upcoming' as GranteeReportStatus,
+    })
+    .select('id')
+    .single()
+  if (error || !report) throw new ActionError(error?.message ?? 'Could not create report')
 
+  const file = formData.get('file')
+  if (file instanceof File && file.size > 0) {
+    await attachReportFile(supabase, memberId, report.id, file)
+  }
+
+  revalidatePath(`/grants-out/awards/${awardId}`)
+}
+
+/**
+ * Mark a report received, stamp the date, and optionally attach the document
+ * the grantee sent in. Used in place of setGranteeReportStatus(...,'received')
+ * so the file upload happens in the same call.
+ */
+export async function markReportReceived(
+  reportId: string,
+  awardId: string,
+  formData: FormData
+) {
+  const memberId = await requireMemberId()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('bio_grantee_reports')
+    .update({
+      status: 'received' as GranteeReportStatus,
+      received_date: todayISO(),
+    })
+    .eq('id', reportId)
   if (error) throw new ActionError(error.message)
+
+  const file = formData.get('file')
+  if (file instanceof File && file.size > 0) {
+    await attachReportFile(supabase, memberId, reportId, file)
+  }
+
   revalidatePath(`/grants-out/awards/${awardId}`)
 }
 
@@ -491,5 +598,34 @@ export async function setGranteeReportStatus(
     .eq('id', reportId)
 
   if (error) throw new ActionError(error.message)
+  revalidatePath(`/grants-out/awards/${awardId}`)
+}
+
+/**
+ * Delete a grantee report along with any uploaded documents (storage files +
+ * bio_attachments rows). For "added by mistake" cleanup.
+ */
+export async function deleteGranteeReport(reportId: string, awardId: string) {
+  await requireMemberId()
+  const supabase = await createClient()
+
+  const { data: atts } = await supabase
+    .from('bio_attachments')
+    .select('id, storage_path')
+    .eq('entity_type', 'grantee_report')
+    .eq('entity_id', reportId)
+
+  if (atts && atts.length > 0) {
+    await supabase.storage.from('documents').remove(atts.map((a) => a.storage_path))
+    await supabase
+      .from('bio_attachments')
+      .delete()
+      .eq('entity_type', 'grantee_report')
+      .eq('entity_id', reportId)
+  }
+
+  const { error } = await supabase.from('bio_grantee_reports').delete().eq('id', reportId)
+  if (error) throw new ActionError(error.message)
+
   revalidatePath(`/grants-out/awards/${awardId}`)
 }
