@@ -21,6 +21,13 @@ export type ContributionMethod =
   | 'in_kind'
 export type Restriction = 'unrestricted' | 'donor_restricted'
 export type LetterStatus = 'draft' | 'generated' | 'sent'
+export type DonationInquiryStatus = 'new' | 'contacted' | 'archived'
+export type GiftMethodPreference =
+  | 'check'
+  | 'wire_ach'
+  | 'daf'
+  | 'stock_crypto'
+  | 'other'
 export type StockValuationSource = 'manual' | 'api_estimate' | 'broker_statement'
 export type FunctionalClass = 'program' | 'management_general' | 'fundraising'
 export type ExpensePaymentMethod = 'card' | 'check' | 'ach' | 'wire' | 'reimbursement'
@@ -116,6 +123,20 @@ export type AcknowledgementLetter = TimestampedRow & {
   sent_at: string | null
   resend_message_id: string | null
   generated_by: string | null
+}
+
+export type DonationInquiry = TimestampedRow & {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  organization: string | null
+  gift_method: GiftMethodPreference
+  amount_cents: number | null
+  amount_text: string | null
+  message: string | null
+  status: DonationInquiryStatus
+  source: string
 }
 
 export type SecurityPrice = TimestampedRow & {
@@ -332,6 +353,7 @@ export type Database = {
       bio_contacts: TableDef<Contact, 'contact_type' | 'display_name'>
       bio_contributions: TableDef<Contribution, 'contact_id' | 'received_date' | 'method'>
       bio_acknowledgement_letters: TableDef<AcknowledgementLetter, 'contribution_id'>
+      bio_donation_inquiries: TableDef<DonationInquiry, 'name' | 'email'>
       bio_security_prices: TableDef<SecurityPrice, 'symbol' | 'price_date' | 'close_cents' | 'source'>
       bio_stock_contribution_details: TableDef<StockContributionDetail, 'contribution_id' | 'security_name' | 'shares' | 'valuation_date' | 'fmv_total_cents'>
       bio_expense_categories: TableDef<ExpenseCategory, 'name' | 'functional_class'>

@@ -2,7 +2,7 @@
 
 create table bio_settings (
   id int primary key check (id = 1),
-  org_legal_name text not null default 'SAIF Bio',
+  org_legal_name text not null default 'SAIFbio Inc.',
   ein text,
   address_line1 text,
   address_line2 text,

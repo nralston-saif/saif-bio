@@ -42,6 +42,8 @@ const ids = {
   disb1: '00000000-0000-0000-0000-000000000701',
   disb2: '00000000-0000-0000-0000-000000000702',
   grantIn1: '00000000-0000-0000-0000-000000000801',
+  inquiry1: '00000000-0000-0000-0000-000000000901',
+  inquiry2: '00000000-0000-0000-0000-000000000902',
 }
 
 function ts(date: string): { created_at: string; updated_at: string } {
@@ -58,7 +60,7 @@ function buildSeedTables(): Record<string, Row[]> {
     bio_settings: [
       {
         id: 1,
-        org_legal_name: 'SAIF Bio Inc.',
+        org_legal_name: 'SAIFbio Inc.',
         ein: '88-1234567',
         address_line1: '548 Market St',
         address_line2: 'PMB 61379',
@@ -161,6 +163,10 @@ function buildSeedTables(): Record<string, Row[]> {
     ],
     bio_grants_in_deliverables: [],
     bio_attachments: [],
+    bio_donation_inquiries: [
+      { id: ids.inquiry1, name: 'Priya Raman', email: 'priya.raman@example.com', phone: '415-555-0142', organization: null, gift_method: 'stock_crypto', amount_cents: 5_000_000, amount_text: '50000', message: 'Interested in gifting appreciated shares before year end — what do you need from me?', status: 'new', source: 'website', ...ts('2026-06-22') },
+      { id: ids.inquiry2, name: 'Daniel Okafor', email: 'dokafor@brightpath.org', phone: null, organization: 'Brightpath Family Foundation', gift_method: 'daf', amount_cents: null, amount_text: 'TBD — likely $10k–25k', message: 'Recommending a grant through our DAF; please confirm legal name and EIN.', status: 'contacted', source: 'website', ...ts('2026-06-18') },
+    ],
   }
 }
 
