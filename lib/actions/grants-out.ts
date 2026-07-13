@@ -7,6 +7,7 @@ import { requireMemberId, requiredString, optionalString, ActionError } from './
 import { parseDollarsToCents } from '@/lib/utils/money'
 import { todayISO, todayPacificISO } from '@/lib/utils/dates'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { syncExpenseToQbo } from '@/lib/quickbooks/sync'
 import type {
   Database,
   DisbursementStatus,
@@ -458,17 +459,23 @@ export async function markDisbursementPaid(disbursementId: string) {
     .single()
 
   if (grantsPaidCategory) {
-    await supabase.from('bio_expenses').insert({
-      expense_date: paidDate,
-      amount_cents: disbursement.amount_cents,
-      description: `Grant disbursement - ${granteeContact?.display_name ?? 'grantee'}${award?.purpose ? `: ${award.purpose}` : ''}`,
-      category_id: grantsPaidCategory.id,
-      vendor_contact_id: award?.grantee_contact_id ?? null,
-      payment_method: disbursement.method,
-      status: 'paid',
-      disbursement_id: disbursementId,
-      entered_by: memberId,
-    })
+    const { data: created } = await supabase
+      .from('bio_expenses')
+      .insert({
+        expense_date: paidDate,
+        amount_cents: disbursement.amount_cents,
+        description: `Grant disbursement - ${granteeContact?.display_name ?? 'grantee'}${award?.purpose ? `: ${award.purpose}` : ''}`,
+        category_id: grantsPaidCategory.id,
+        vendor_contact_id: award?.grantee_contact_id ?? null,
+        payment_method: disbursement.method,
+        status: 'paid',
+        disbursement_id: disbursementId,
+        entered_by: memberId,
+      })
+      .select('id')
+      .single()
+
+    if (created) await syncExpenseToQbo(supabase, created.id)
   }
 
   revalidatePath(`/grants-out/awards/${disbursement.grant_out_id}`)

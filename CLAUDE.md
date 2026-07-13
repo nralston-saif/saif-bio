@@ -41,7 +41,8 @@ pnpm db:types   # regenerate lib/supabase/types/database.ts (needs linked projec
 - **Disbursements**: marking one paid auto-creates a `bio_expenses` row in "Grants paid" (linked via `disbursement_id`) so 990 functional totals stay complete without double entry.
 - **Storage**: two private buckets, `documents` and `letters`. Always serve via signed URLs (`getSignedFileUrl`). Uploads go through the `uploadAttachment` server action into the polymorphic `bio_attachments` table.
 - **Governance docs** (bylaws, determination letter, board minutes) live as attachments with `entity_type='governance'`, `entity_id='00000000-0000-0000-0000-000000000000'`, managed from /settings.
-- Server actions live in lib/actions/*.ts, throw `ActionError` with user-facing messages, and call `requireMemberId()` first. Route handlers exist only for streaming: /api/letters/[contributionId] (PDF preview) and /api/exports/[report] (CSV).
+- Server actions live in lib/actions/*.ts, throw `ActionError` with user-facing messages, and call `requireMemberId()` first. Route handlers exist only for streaming — /api/letters/[contributionId] (PDF preview) and /api/exports/[report] (CSV) — plus the QuickBooks OAuth redirect pair (/api/quickbooks/connect and /callback).
+- **QuickBooks sync**: one-way push of expenses to QuickBooks Online as Purchase transactions (lib/quickbooks/). The single `bio_qbo_connection` row holds OAuth tokens (auto-refreshed on use; connection dies if unused ~100 days). `bio_qbo_mappings` maps expense categories → QBO accounts, functional classes → QBO Classes, payment methods → paid-from accounts (configured in /settings). Every expense create/update/delete and paid disbursement triggers `syncExpenseToQbo`, which never throws — failures land in `qbo_sync_status='failed'` + `qbo_sync_error` on the row, retryable from the expense page. Receipts attach to the QBO transaction on first sync only. QBO env keys: `QBO_CLIENT_ID`/`QBO_CLIENT_SECRET`/`QBO_ENVIRONMENT` (+ optional `QBO_REDIRECT_URI` override); currently development keys + sandbox; the switch to the real company is documented step-by-step in QUICKBOOKS_GO_LIVE.md.
 
 ## Environment
 
@@ -49,4 +50,4 @@ Copy .env.example to .env.local. `SUPABASE_SERVICE_ROLE_KEY` is needed for lette
 
 ## Migrations
 
-supabase/migrations/ runs in order 001-009 on a fresh database. 009 creates the storage buckets and policies. After schema changes, run `pnpm db:types` and `pnpm typecheck`.
+supabase/migrations/ runs in order 001-015 on a fresh database. 009 creates the storage buckets and policies. After schema changes, run `pnpm db:types` and `pnpm typecheck` (note: lib/supabase/types/database.ts is currently hand-maintained — update it to match the migration).

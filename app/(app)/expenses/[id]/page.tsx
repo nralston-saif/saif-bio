@@ -9,6 +9,7 @@ import { formatCents } from '@/lib/utils/money'
 import { formatDate } from '@/lib/utils/dates'
 import ExpenseFormFields from '../ExpenseFormFields'
 import DeleteExpenseButton from './DeleteExpenseButton'
+import QboSyncPanel from './QboSyncPanel'
 
 export default async function ExpenseDetailPage({
   params,
@@ -73,6 +74,8 @@ export default async function ExpenseDetailPage({
           revalidatePath={`/expenses/${id}`}
           title="Receipts"
         />
+
+        <QboSyncPanel expense={expense} />
 
         {expense.disbursement_id ? (
           <div className="card p-4 bg-blue-50 border-blue-100 text-sm text-blue-800">

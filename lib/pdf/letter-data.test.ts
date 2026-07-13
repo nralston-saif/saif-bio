@@ -46,6 +46,7 @@ const contact: Contact = {
   is_funder: false,
   is_vendor: false,
   w9_on_file: false,
+  qbo_vendor_id: null,
   notes: null,
   created_at: '',
   updated_at: '',

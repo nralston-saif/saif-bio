@@ -66,6 +66,10 @@ export type AttachmentEntityType =
   | 'contact'
   | 'governance'
 
+export type QboEnvironment = 'sandbox' | 'production'
+export type QboSyncStatus = 'not_synced' | 'synced' | 'failed'
+export type QboMappingType = 'category' | 'functional_class' | 'payment_method'
+
 type TimestampedRow = {
   created_at: string
   updated_at: string
@@ -101,6 +105,7 @@ export type Contact = TimestampedRow & {
   is_vendor: boolean
   w9_on_file: boolean
   notes: string | null
+  qbo_vendor_id: string | null
 }
 
 export type Contribution = TimestampedRow & {
@@ -202,6 +207,10 @@ export type Expense = TimestampedRow & {
   disbursement_id: string | null
   notes: string | null
   entered_by: string | null
+  qbo_purchase_id: string | null
+  qbo_sync_status: QboSyncStatus
+  qbo_synced_at: string | null
+  qbo_sync_error: string | null
 }
 
 export type GrantProposal = TimestampedRow & {
@@ -347,6 +356,28 @@ export type Settings = TimestampedRow & {
   letter_closing_text: string
 }
 
+export type QboConnection = {
+  id: number
+  environment: QboEnvironment
+  realm_id: string
+  company_name: string | null
+  access_token: string
+  refresh_token: string
+  access_token_expires_at: string
+  refresh_token_expires_at: string
+  connected_by: string | null
+  connected_at: string
+  updated_at: string
+}
+
+export type QboMapping = TimestampedRow & {
+  id: string
+  mapping_type: QboMappingType
+  local_key: string
+  qbo_id: string
+  qbo_name: string | null
+}
+
 type TableDef<Row, Required extends keyof Row = never> = {
   Row: Row
   Insert: Partial<Row> & Pick<Row, Required>
@@ -377,6 +408,8 @@ export type Database = {
       bio_grants_in_deliverables: TableDef<GrantInDeliverable, 'grant_in_id' | 'title' | 'deliverable_type' | 'due_date'>
       bio_attachments: TableDef<Attachment, 'entity_type' | 'entity_id' | 'storage_path' | 'file_name'>
       bio_settings: TableDef<Settings, never>
+      bio_qbo_connection: TableDef<QboConnection, 'environment' | 'realm_id' | 'access_token' | 'refresh_token' | 'access_token_expires_at' | 'refresh_token_expires_at'>
+      bio_qbo_mappings: TableDef<QboMapping, 'mapping_type' | 'local_key' | 'qbo_id'>
     }
     Views: Record<string, never>
     Functions: {

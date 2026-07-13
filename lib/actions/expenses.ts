@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
 import { storeAttachmentFile } from '@/lib/storage/store-file'
 import { parseDollarsToCents } from '@/lib/utils/money'
+import { syncExpenseToQbo, deleteExpenseFromQbo } from '@/lib/quickbooks/sync'
 import type { ExpensePaymentMethod, ExpenseStatus, FunctionalClass } from '@/lib/supabase/types/database'
 
 function expenseFields(formData: FormData) {
@@ -37,6 +38,9 @@ export async function createExpense(formData: FormData) {
     .single()
 
   if (error) throw new ActionError(error.message)
+
+  // Push to QuickBooks if connected; failures are recorded on the row, never block the save.
+  await syncExpenseToQbo(supabase, data.id)
 
   revalidatePath('/expenses')
   redirect(`/expenses/${data.id}`)
@@ -74,6 +78,9 @@ export async function createExpenseFromInvoice(formData: FormData) {
     }
   }
 
+  // After the receipt is stored so it gets attached to the QBO transaction too.
+  await syncExpenseToQbo(supabase, data.id)
+
   revalidatePath('/expenses')
   redirect(`/expenses/${data.id}`)
 }
@@ -89,6 +96,8 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 
   if (error) throw new ActionError(error.message)
 
+  await syncExpenseToQbo(supabase, expenseId)
+
   revalidatePath('/expenses')
   revalidatePath(`/expenses/${expenseId}`)
 }
@@ -97,8 +106,18 @@ export async function deleteExpense(expenseId: string) {
   await requireMemberId()
   const supabase = await createClient()
 
+  const { data: expense } = await supabase
+    .from('bio_expenses')
+    .select('qbo_purchase_id')
+    .eq('id', expenseId)
+    .maybeSingle()
+
   const { error } = await supabase.from('bio_expenses').delete().eq('id', expenseId)
   if (error) throw new ActionError(error.message)
+
+  if (expense?.qbo_purchase_id) {
+    await deleteExpenseFromQbo(expense.qbo_purchase_id)
+  }
 
   revalidatePath('/expenses')
   redirect('/expenses')

@@ -3,6 +3,7 @@ import PageHeader from '@/components/PageHeader'
 import SubmitButton from '@/components/SubmitButton'
 import AttachmentsPanel from '@/components/AttachmentsPanel'
 import { updateSettings } from '@/lib/actions/settings'
+import QuickBooksCard from './QuickBooksCard'
 
 const GOVERNANCE_ENTITY_ID = '00000000-0000-0000-0000-000000000000'
 
@@ -21,7 +22,12 @@ const MONTH_NAMES = [
   'December',
 ]
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ qbo?: string; qbo_message?: string }>
+}) {
+  const { qbo, qbo_message } = await searchParams
   const supabase = await createClient()
 
   const [settingsRes, membersRes, attachmentsRes] = await Promise.all([
@@ -43,6 +49,17 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" description="Organization details, team, and governance documents" />
 
       <div className="space-y-6">
+        {qbo === 'connected' && (
+          <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+            QuickBooks connected. Map your categories and accounts below.
+          </div>
+        )}
+        {qbo === 'error' && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+            QuickBooks connection failed{qbo_message ? `: ${qbo_message}` : '.'}
+          </div>
+        )}
+
         <form action={updateSettings} className="card p-6">
           <h2 className="font-medium text-gray-900 mb-4">Organization</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -188,6 +205,8 @@ export default async function SettingsPage() {
             <SubmitButton>Save settings</SubmitButton>
           </div>
         </form>
+
+        <QuickBooksCard />
 
         <div className="card p-6">
           <h2 className="font-medium text-gray-900 mb-3">Team</h2>
