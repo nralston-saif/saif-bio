@@ -45,16 +45,12 @@ export async function createContact(formData: FormData) {
   await requireMemberId()
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('bio_contacts')
-    .insert(contactFields(formData))
-    .select('id')
-    .single()
+  const { error } = await supabase.from('bio_contacts').insert(contactFields(formData))
 
   if (error) throw new ActionError(error.message)
 
   revalidatePath('/contacts')
-  redirect(`/contacts/${data.id}`)
+  redirect('/contacts')
 }
 
 /**
@@ -134,4 +130,5 @@ export async function updateContact(contactId: string, formData: FormData) {
 
   revalidatePath('/contacts')
   revalidatePath(`/contacts/${contactId}`)
+  redirect('/contacts')
 }
