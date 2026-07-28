@@ -379,6 +379,19 @@ export async function createAward(formData: FormData) {
   redirect(`/grants-out/awards/${data.id}`)
 }
 
+export async function setAwardAgreementDate(awardId: string, formData: FormData) {
+  await requireMemberId()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('bio_grants_out')
+    .update({ agreement_signed_date: optionalString(formData, 'agreement_signed_date') })
+    .eq('id', awardId)
+
+  if (error) throw new ActionError(error.message)
+  revalidatePath(`/grants-out/awards/${awardId}`)
+}
+
 export async function setAwardStatus(awardId: string, status: GrantOutStatus) {
   await requireMemberId()
   const supabase = await createClient()
@@ -431,9 +444,16 @@ export async function markDisbursementPaid(disbursementId: string) {
 
   const { data: award } = await supabase
     .from('bio_grants_out')
-    .select('id, purpose, grantee_contact_id')
+    .select('id, purpose, grantee_contact_id, agreement_signed_date')
     .eq('id', disbursement.grant_out_id)
     .single()
+
+  if (!award) throw new ActionError('Award not found')
+  if (!award.agreement_signed_date) {
+    throw new ActionError(
+      'No signed grant agreement is recorded for this award. Record the agreement signed date on the award before paying disbursements.'
+    )
+  }
 
   const { data: granteeContact } = award
     ? await supabase

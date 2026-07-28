@@ -9,6 +9,7 @@ import { getOrFetchDailySecurityPrice, normalizeSecuritySymbol } from '@/lib/mar
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   ContributionMethod,
+  ContributionVehicle,
   Database,
   Restriction,
   StockValuationSource,
@@ -144,6 +145,19 @@ async function contributionFields(
   const quidProQuo = formData.get('quid_pro_quo') === 'on'
   const receivedDate = requiredString(formData, 'received_date')
 
+  const vehicle = (optionalString(formData, 'vehicle') ?? 'direct') as ContributionVehicle
+  const vehicleSponsorName = optionalString(formData, 'vehicle_sponsor_name')
+  if (vehicle === 'daf' && !vehicleSponsorName) {
+    throw new ActionError(
+      'DAF grants require the sponsoring organization (e.g. Fidelity Charitable) — it is the legal donor of record'
+    )
+  }
+  if (quidProQuo && (vehicle === 'daf' || vehicle === 'ira_qcd')) {
+    throw new ActionError(
+      'DAF grants and IRA qualified charitable distributions cannot involve goods or services to the donor (quid pro quo)'
+    )
+  }
+
   const amountInput = optionalString(formData, 'amount')
   let amountCents = amountInput !== null ? parseDollarsToCents(amountInput) : null
   if (amountInput !== null && amountCents === null) {
@@ -182,6 +196,8 @@ async function contributionFields(
       amount_cents: amountCents,
       received_date: receivedDate,
       method,
+      vehicle,
+      vehicle_sponsor_name: vehicle === 'direct' ? null : vehicleSponsorName,
       in_kind_description: method === 'in_kind' ? inKindDescription : null,
       restriction: (optionalString(formData, 'restriction') ?? 'unrestricted') as Restriction,
       restriction_purpose: optionalString(formData, 'restriction_purpose'),

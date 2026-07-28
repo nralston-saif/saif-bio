@@ -1,4 +1,5 @@
 import type { Contact } from '@/lib/supabase/types/database'
+import { TAX_STATUS_OPTIONS } from '@/lib/utils/tax-status'
 
 const ROLE_CHECKBOXES = [
   { name: 'is_donor', label: 'Donor' },
@@ -94,9 +95,21 @@ export default function ContactFormFields({ contact }: { contact?: Contact }) {
         <input name="country" defaultValue={contact?.country ?? 'US'} className="input" />
       </label>
 
-      <label className="block sm:col-span-2">
+      <label className="block">
         <Label>Tax ID (EIN / SSN)</Label>
         <input name="tax_id" defaultValue={contact?.tax_id ?? ''} className="input" />
+      </label>
+
+      <label className="block">
+        <Label>Tax status</Label>
+        <select name="tax_status" defaultValue={contact?.tax_status ?? ''} className="input">
+          <option value="">Not determined</option>
+          {TAX_STATUS_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </label>
 
       <fieldset className="sm:col-span-2">

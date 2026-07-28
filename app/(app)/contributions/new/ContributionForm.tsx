@@ -10,11 +10,17 @@ import { todayISO } from '@/lib/utils/dates'
 import type {
   Contribution,
   ContributionMethod,
+  ContributionVehicle,
   Restriction,
   StockContributionDetail,
   StockValuationSource,
 } from '@/lib/supabase/types/database'
-import { METHOD_LABELS } from '../methods'
+import {
+  METHOD_LABELS,
+  VEHICLE_LABELS,
+  VEHICLE_SPONSOR_LABELS,
+  vehicleForbidsQuidProQuo,
+} from '../methods'
 
 interface ContributionFormProps {
   contacts: { id: string; display_name: string }[]
@@ -48,10 +54,16 @@ export default function ContributionForm({
   stockDetail,
 }: ContributionFormProps) {
   const [method, setMethod] = useState<ContributionMethod>(contribution?.method ?? 'check')
+  const [vehicle, setVehicle] = useState<ContributionVehicle>(contribution?.vehicle ?? 'direct')
   const [restriction, setRestriction] = useState<Restriction>(
     contribution?.restriction ?? 'unrestricted'
   )
   const [quidProQuo, setQuidProQuo] = useState(contribution?.quid_pro_quo ?? false)
+
+  const handleVehicleChange = (value: ContributionVehicle) => {
+    setVehicle(value)
+    if (vehicleForbidsQuidProQuo(value)) setQuidProQuo(false)
+  }
   const [isPending, startTransition] = useTransition()
   const { showToast } = useToast()
 
@@ -173,6 +185,45 @@ export default function ContributionForm({
               defaultValue={contribution?.check_number ?? ''}
               className="input"
             />
+          </label>
+        )}
+
+        <label className="block">
+          <Label>Giving vehicle *</Label>
+          <select
+            name="vehicle"
+            required
+            value={vehicle}
+            onChange={(e) => handleVehicleChange(e.target.value as ContributionVehicle)}
+            className="input"
+          >
+            {(Object.keys(VEHICLE_LABELS) as ContributionVehicle[]).map((v) => (
+              <option key={v} value={v}>
+                {VEHICLE_LABELS[v]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {vehicle !== 'direct' && (
+          <label className="block">
+            <Label>
+              {VEHICLE_SPONSOR_LABELS[vehicle]}
+              {vehicle === 'daf' ? ' *' : ''}
+            </Label>
+            <input
+              name="vehicle_sponsor_name"
+              required={vehicle === 'daf'}
+              defaultValue={contribution?.vehicle_sponsor_name ?? ''}
+              className="input"
+              placeholder={vehicle === 'daf' ? 'e.g. Fidelity Charitable' : ''}
+            />
+            {vehicle === 'daf' && (
+              <span className="mt-1 block text-xs text-gray-500">
+                The sponsoring organization is the legal donor of record; the contact above is the
+                advising donor.
+              </span>
+            )}
           </label>
         )}
 
@@ -365,18 +416,26 @@ export default function ContributionForm({
           </label>
         )}
 
-        <label className="flex items-start gap-2 sm:col-span-2 mt-1">
-          <input
-            type="checkbox"
-            name="quid_pro_quo"
-            checked={quidProQuo}
-            onChange={(e) => setQuidProQuo(e.target.checked)}
-            className="mt-0.5 rounded border-gray-300"
-          />
-          <span className="text-sm text-gray-700">
-            Donor received goods or services in exchange (quid pro quo)
-          </span>
-        </label>
+        {vehicleForbidsQuidProQuo(vehicle) ? (
+          <p className="sm:col-span-2 mt-1 text-xs text-gray-500">
+            {vehicle === 'daf'
+              ? 'DAF grants cannot provide goods or services to the advising donor (IRC 4967), so quid pro quo does not apply.'
+              : 'An IRA qualified charitable distribution is disqualified by any return benefit, so quid pro quo does not apply.'}
+          </p>
+        ) : (
+          <label className="flex items-start gap-2 sm:col-span-2 mt-1">
+            <input
+              type="checkbox"
+              name="quid_pro_quo"
+              checked={quidProQuo}
+              onChange={(e) => setQuidProQuo(e.target.checked)}
+              className="mt-0.5 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">
+              Donor received goods or services in exchange (quid pro quo)
+            </span>
+          </label>
+        )}
 
         {quidProQuo && (
           <div className="sm:col-span-2 rounded-lg bg-gray-50 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">

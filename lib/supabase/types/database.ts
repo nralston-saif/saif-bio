@@ -19,6 +19,14 @@ export type ContributionMethod =
   | 'stock'
   | 'crypto'
   | 'in_kind'
+export type ContributionVehicle =
+  | 'direct'
+  | 'daf'
+  | 'private_foundation'
+  | 'ira_qcd'
+  | 'employer_match'
+  | 'charitable_trust'
+  | 'other'
 export type Restriction = 'unrestricted' | 'donor_restricted'
 export type LetterStatus = 'draft' | 'generated' | 'sent'
 export type DonationInquiryStatus = 'new' | 'contacted' | 'archived'
@@ -31,6 +39,13 @@ export type GiftMethodPreference =
 export type StockValuationSource = 'manual' | 'api_estimate' | 'broker_statement'
 export type FunctionalClass = 'program' | 'management_general' | 'fundraising'
 export type ExpensePaymentMethod = 'card' | 'check' | 'ach' | 'wire' | 'reimbursement'
+export type ContactTaxStatus =
+  | '501c3_public_charity'
+  | '501c3_private_foundation'
+  | 'other_nonprofit'
+  | 'government'
+  | 'for_profit'
+  | 'individual'
 export type ExpenseStatus = 'pending' | 'paid' | 'reimbursed'
 export type ProposalStatus = 'received' | 'in_review' | 'decided' | 'withdrawn'
 export type ProposalDecision = 'approved' | 'declined'
@@ -99,6 +114,7 @@ export type Contact = TimestampedRow & {
   postal_code: string | null
   country: string
   tax_id: string | null
+  tax_status: ContactTaxStatus | null
   is_donor: boolean
   is_grantee: boolean
   is_funder: boolean
@@ -114,6 +130,8 @@ export type Contribution = TimestampedRow & {
   amount_cents: number | null
   received_date: string
   method: ContributionMethod
+  vehicle: ContributionVehicle
+  vehicle_sponsor_name: string | null
   in_kind_description: string | null
   restriction: Restriction
   restriction_purpose: string | null

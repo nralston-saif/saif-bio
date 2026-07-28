@@ -9,18 +9,19 @@ Current state while you read this: the app runs with **development keys**
 against a **sandbox** company. Nothing here touches SAIF Ventures' QuickBooks
 at any point.
 
-## 1. Get the real QuickBooks company (TechSoup)
+## 1. Get the real QuickBooks company (retail Plus)
 
-1. When TechSoup approves SAIF Bio's nonprofit status, request
-   **QuickBooks Online Plus, 1-Year Subscription, 5 Users** (~$80/yr admin fee).
-   Plus is required — class tracking lives in Plus and up.
-2. Follow the fulfillment email. At activation, **sign in with SAIF's existing
-   Intuit login** instead of creating a new account — SAIF Bio becomes a second
-   company under that login. Skip every data-migration step in Intuit's docs;
-   SAIF Bio starts with fresh books.
-3. The person who activates becomes the company's primary admin. Renewal: pay
-   TechSoup's admin fee annually (subscription year starts at TechSoup
-   *approval*, not activation — activate promptly).
+1. Subscribe to **QuickBooks Online Plus** at retail (~$99/mo). Plus is
+   required — class tracking lives in Plus and up. (TechSoup's nonprofit
+   discount was considered and skipped: it can't be applied to an existing
+   subscription, only to a new donated company. If it's ever revisited, the
+   clean switch is at a fiscal-year boundary with fresh books in the donated
+   company, plus an app-side reconnect/remap/re-sync.)
+2. At signup, **sign in with SAIF's existing Intuit login** instead of
+   creating a new account — SAIF Bio becomes a second company under that
+   login. Skip every data-migration step in Intuit's docs; SAIF Bio starts
+   with fresh books.
+3. The person who activates becomes the company's primary admin.
 
 ## 2. Set up the new company's books
 
@@ -40,8 +41,9 @@ Do this inside the new QuickBooks company (with the accountant if possible):
 
 ## 3. Production keys in the Intuit developer portal
 
-At developer.intuit.com (Nick's developer account, workspace "SAIFbio", app
-"Internal App"):
+At developer.intuit.com (Nick's developer account — note this is a **separate
+Intuit login** from the one the QuickBooks companies live under; workspace
+"SAIFbio", app "Internal App"):
 
 1. Complete the **Get production keys** questionnaire. The EULA / privacy
    fields are a formality for private apps — real pages on saifbio.org are fine.

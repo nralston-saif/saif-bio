@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireMemberId, requiredString, optionalString, ActionError } from './helpers'
 import { vendorFieldsFromInput, type NewVendorInput } from './vendor-fields'
 import { applicantFieldsFromInput, type NewApplicantInput } from './applicant-fields'
-import type { ContactType } from '@/lib/supabase/types/database'
+import type { ContactTaxStatus, ContactType } from '@/lib/supabase/types/database'
 
 export type CreateVendorResult =
   | { ok: true; vendor: { id: string; display_name: string } }
@@ -32,6 +32,7 @@ function contactFields(formData: FormData) {
     postal_code: optionalString(formData, 'postal_code'),
     country: optionalString(formData, 'country') ?? 'US',
     tax_id: optionalString(formData, 'tax_id'),
+    tax_status: optionalString(formData, 'tax_status') as ContactTaxStatus | null,
     is_donor: formData.get('is_donor') === 'on',
     is_grantee: formData.get('is_grantee') === 'on',
     is_funder: formData.get('is_funder') === 'on',

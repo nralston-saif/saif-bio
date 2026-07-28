@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { currentFiscalYear, fiscalYearRange } from '@/lib/utils/fiscal-year'
+import { TAX_STATUS_LABELS } from '@/lib/utils/tax-status'
+import type { ContactTaxStatus } from '@/lib/supabase/types/database'
 
 const REPORTS = new Set(['expenses', 'contributions', 'grants-paid', '1099-vendors'])
 
@@ -105,7 +107,9 @@ export async function GET(
     case 'contributions': {
       const { data: contributionsData } = await supabase
         .from('bio_contributions')
-        .select('id, received_date, contact_id, amount_cents, method, restriction, quid_pro_quo')
+        .select(
+          'id, received_date, contact_id, amount_cents, method, vehicle, vehicle_sponsor_name, restriction, quid_pro_quo'
+        )
         .gte('received_date', start)
         .lt('received_date', end)
         .order('received_date')
@@ -138,6 +142,8 @@ export async function GET(
           'donor',
           'amount_or_internal_fmv',
           'method',
+          'vehicle',
+          'vehicle_sponsor',
           'restriction',
           'quid_pro_quo',
           'security',
@@ -156,6 +162,8 @@ export async function GET(
             donorName.get(c.contact_id) ?? '',
             dollars(c.amount_cents),
             c.method,
+            c.vehicle,
+            c.vehicle_sponsor_name ?? '',
             c.restriction,
             c.quid_pro_quo ? 'yes' : 'no',
             stock?.security_name ?? '',
@@ -207,13 +215,20 @@ export async function GET(
         granteeIds.length > 0
           ? await supabase
               .from('bio_contacts')
-              .select('id, display_name, tax_id')
+              .select('id, display_name, tax_id, tax_status')
               .in('id', granteeIds)
-          : { data: [] as { id: string; display_name: string; tax_id: string | null }[] }
+          : {
+              data: [] as {
+                id: string
+                display_name: string
+                tax_id: string | null
+                tax_status: ContactTaxStatus | null
+              }[],
+            }
       const granteeById = new Map((grantees ?? []).map((g) => [g.id, g]))
 
       csv = toCsv(
-        ['grantee', 'ein', 'purpose', 'award_date', 'amount_disbursed_in_fy'],
+        ['grantee', 'ein', 'tax_status', 'purpose', 'award_date', 'amount_disbursed_in_fy'],
         grants
           .map((g) => {
             const grantee = granteeById.get(g.grantee_contact_id)
@@ -221,6 +236,7 @@ export async function GET(
               row: [
                 grantee?.display_name ?? '',
                 grantee?.tax_id ?? '',
+                grantee?.tax_status ? TAX_STATUS_LABELS[grantee.tax_status] : '',
                 g.purpose ?? '',
                 g.award_date ?? '',
                 dollars(paidByGrant.get(g.id) ?? 0),
@@ -235,14 +251,19 @@ export async function GET(
     }
 
     default: {
-      // '1099-vendors'
+      // '1099-vendors' — always calendar-year (1099s are filed per calendar
+      // year regardless of fiscal year). Card payments are excluded: the card
+      // processor reports those on Form 1099-K. Pending expenses aren't
+      // payments yet.
       const { data: expensesData } = await supabase
         .from('bio_expenses')
-        .select('amount_cents, vendor_contact_id')
+        .select('amount_cents, vendor_contact_id, payment_method, status')
         .eq('is_1099_eligible', true)
-        .gte('expense_date', start)
-        .lt('expense_date', end)
-      const expenses = expensesData ?? []
+        .gte('expense_date', `${fy}-01-01`)
+        .lt('expense_date', `${fy + 1}-01-01`)
+      const expenses = (expensesData ?? []).filter(
+        (e) => e.payment_method !== 'card' && e.status !== 'pending'
+      )
 
       const byVendor = new Map<string, number>()
       for (const e of expenses) {
@@ -287,7 +308,7 @@ export async function GET(
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv',
-      'Content-Disposition': `attachment; filename="${report}-fy${fy}.csv"`,
+      'Content-Disposition': `attachment; filename="${report}-${report === '1099-vendors' ? 'cy' : 'fy'}${fy}.csv"`,
     },
   })
 }

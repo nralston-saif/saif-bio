@@ -5,7 +5,8 @@ import PageHeader from '@/components/PageHeader'
 import { formatCents } from '@/lib/utils/money'
 import { currentFiscalYear, fiscalYearRange } from '@/lib/utils/fiscal-year'
 import { withBasePath } from '@/lib/basePath'
-import type { FunctionalClass } from '@/lib/supabase/types/database'
+import type { ContactTaxStatus, FunctionalClass } from '@/lib/supabase/types/database'
+import { TAX_STATUS_LABELS } from '@/lib/utils/tax-status'
 
 const FUNCTIONAL_CLASS_ORDER: FunctionalClass[] = ['program', 'management_general', 'fundraising']
 
@@ -47,7 +48,7 @@ export default async function ReportsPage({
   const { start, end } = fiscalYearRange(fy, startMonth)
   const fyOptions = [current, current - 1, current - 2]
 
-  const [expensesRes, categoriesRes, contributionsRes, disbursementsRes] = await Promise.all([
+  const [expensesRes, categoriesRes, contributionsRes, disbursementsRes, expenses1099Res] = await Promise.all([
     supabase
       .from('bio_expenses')
       .select('id, amount_cents, category_id, is_1099_eligible, vendor_contact_id')
@@ -65,6 +66,13 @@ export default async function ReportsPage({
       .eq('status', 'paid')
       .gte('paid_date', start)
       .lt('paid_date', end),
+    // 1099s are always calendar-year, regardless of the org's fiscal year.
+    supabase
+      .from('bio_expenses')
+      .select('id, amount_cents, vendor_contact_id, payment_method, status')
+      .eq('is_1099_eligible', true)
+      .gte('expense_date', `${fy}-01-01`)
+      .lt('expense_date', `${fy + 1}-01-01`),
   ])
 
   const expenses = expensesRes.data ?? []
@@ -88,7 +96,12 @@ export default async function ReportsPage({
   const grantsOut = grantsOutData ?? []
 
   // --- Contacts for donors, grantees, and 1099 vendors ---
-  const eligible1099 = expenses.filter((e) => e.is_1099_eligible)
+  // Card payments are excluded: the card processor reports those on Form
+  // 1099-K, so including them would double-report. Pending expenses aren't
+  // payments yet.
+  const eligible1099 = (expenses1099Res.data ?? []).filter(
+    (e) => e.payment_method !== 'card' && e.status !== 'pending'
+  )
   const contactIds = Array.from(
     new Set([
       ...contributions.map((c) => c.contact_id),
@@ -100,13 +113,14 @@ export default async function ReportsPage({
     contactIds.length > 0
       ? await supabase
           .from('bio_contacts')
-          .select('id, display_name, tax_id, w9_on_file')
+          .select('id, display_name, tax_id, tax_status, w9_on_file')
           .in('id', contactIds)
       : {
           data: [] as {
             id: string
             display_name: string
             tax_id: string | null
+            tax_status: ContactTaxStatus | null
             w9_on_file: boolean
           }[],
         }
@@ -161,6 +175,7 @@ export default async function ReportsPage({
         id: g.id,
         grantee: grantee?.display_name ?? 'Unknown grantee',
         ein: grantee?.tax_id ?? '—',
+        taxStatus: grantee?.tax_status ? TAX_STATUS_LABELS[grantee.tax_status] : null,
         purpose: g.purpose ?? '—',
         amount: paidByGrant.get(g.id) ?? 0,
       }
@@ -328,6 +343,7 @@ export default async function ReportsPage({
                 <tr className={headerRow}>
                   <th className={headerCell}>Grantee</th>
                   <th className={headerCell}>EIN</th>
+                  <th className={headerCell}>Tax status</th>
                   <th className={headerCell}>Purpose</th>
                   <th className="py-2 font-medium text-right">Amount disbursed</th>
                 </tr>
@@ -337,12 +353,15 @@ export default async function ReportsPage({
                   <tr key={row.id} className={bodyRow}>
                     <td className="py-2.5 pr-4 text-gray-900">{row.grantee}</td>
                     <td className="py-2.5 pr-4 text-gray-500">{row.ein}</td>
+                    <td className="py-2.5 pr-4">
+                      {row.taxStatus ?? <span className="text-red-600">Not determined</span>}
+                    </td>
                     <td className="py-2.5 pr-4 text-gray-600">{row.purpose}</td>
                     <td className="py-2.5 text-right tabular-nums">{formatCents(row.amount)}</td>
                   </tr>
                 ))}
                 <tr>
-                  <td className="py-2.5 pr-4 font-semibold text-gray-900" colSpan={3}>
+                  <td className="py-2.5 pr-4 font-semibold text-gray-900" colSpan={4}>
                     Total
                   </td>
                   <td className="py-2.5 text-right tabular-nums font-semibold">
@@ -356,10 +375,13 @@ export default async function ReportsPage({
 
         {/* 1099 vendors */}
         <div className="card p-6">
-          <SectionHeader title="1099 vendors" csvHref={`/api/exports/1099-vendors?fy=${fy}`} />
+          <SectionHeader
+            title={`1099 vendors — calendar year ${fy}`}
+            csvHref={`/api/exports/1099-vendors?fy=${fy}`}
+          />
           {vendorRows.length === 0 ? (
             <p className="text-sm text-gray-400">
-              No 1099-eligible expenses recorded for this fiscal year.
+              No 1099-eligible payments recorded for calendar year {fy}.
             </p>
           ) : (
             <table className="w-full text-sm">
@@ -390,7 +412,8 @@ export default async function ReportsPage({
             </table>
           )}
           <p className="text-xs text-gray-400 mt-3">
-            Vendors paid over $600 in the fiscal year need a Form 1099.
+            Vendors paid over $600 in a calendar year need a Form 1099-NEC. Card payments are
+            excluded — the card processor reports those on Form 1099-K.
           </p>
         </div>
       </div>

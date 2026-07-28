@@ -38,7 +38,8 @@ pnpm db:types   # regenerate lib/supabase/types/database.ts (needs linked projec
 - **RLS exception**: `bio_proposal_reviews` and `bio_proposal_comments` — partners read all, but write only their own rows (`reviewer_id = bio_member_id()`).
 - **Letters**: `lib/pdf/letter-data.ts` is the pure data builder holding the IRS-required language (no-goods statement, quid pro quo estimate, in-kind no-valuation). It is unit-tested in letter-data.test.ts — don't change the language without checking IRS Pub 1771. Generated PDFs go to the private `letters` bucket; a `body_snapshot` is frozen on the letter row; contributions with a *sent* letter are locked from editing.
 - **Stock gifts**: stock contributions store internal FMV in `bio_contributions.amount_cents`, detailed security/valuation/sale metadata in `bio_stock_contribution_details`, and reusable daily market data in `bio_security_prices`. Acknowledgement letters describe securities received but do not state internal FMV.
-- **Disbursements**: marking one paid auto-creates a `bio_expenses` row in "Grants paid" (linked via `disbursement_id`) so 990 functional totals stay complete without double entry.
+- **Disbursements**: marking one paid auto-creates a `bio_expenses` row in "Grants paid" (linked via `disbursement_id`) so 990 functional totals stay complete without double entry. Paying is blocked until the award has an `agreement_signed_date` (editable inline on the award page).
+- **1099 report**: always calendar-year (1099s are filed per CY regardless of fiscal year) and excludes card payments (processor reports those on 1099-K) and pending expenses. Contacts carry a `tax_status` (`ContactTaxStatus`) used for Schedule I grantee reporting and grant diligence.
 - **Storage**: two private buckets, `documents` and `letters`. Always serve via signed URLs (`getSignedFileUrl`). Uploads go through the `uploadAttachment` server action into the polymorphic `bio_attachments` table.
 - **Governance docs** (bylaws, determination letter, board minutes) live as attachments with `entity_type='governance'`, `entity_id='00000000-0000-0000-0000-000000000000'`, managed from /settings.
 - Server actions live in lib/actions/*.ts, throw `ActionError` with user-facing messages, and call `requireMemberId()` first. Route handlers exist only for streaming — /api/letters/[contributionId] (PDF preview) and /api/exports/[report] (CSV) — plus the QuickBooks OAuth redirect pair (/api/quickbooks/connect and /callback).
@@ -50,4 +51,4 @@ Copy .env.example to .env.local. `SUPABASE_SERVICE_ROLE_KEY` is needed for lette
 
 ## Migrations
 
-supabase/migrations/ runs in order 001-015 on a fresh database. 009 creates the storage buckets and policies. After schema changes, run `pnpm db:types` and `pnpm typecheck` (note: lib/supabase/types/database.ts is currently hand-maintained — update it to match the migration).
+supabase/migrations/ runs in order 001-017 on a fresh database. 009 creates the storage buckets and policies. After schema changes, run `pnpm db:types` and `pnpm typecheck` (note: lib/supabase/types/database.ts is currently hand-maintained — update it to match the migration).

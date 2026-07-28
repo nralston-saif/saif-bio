@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { addGranteeReport } from '@/lib/actions/grants-out'
+import { addGranteeReport, setAwardAgreementDate } from '@/lib/actions/grants-out'
 import PageHeader from '@/components/PageHeader'
 import StatusBadge from '@/components/StatusBadge'
 import SubmitButton from '@/components/SubmitButton'
@@ -143,7 +143,33 @@ export default async function AwardPage({ params }: { params: Promise<{ id: stri
             />
             <DetailRow label="Award date" value={formatDate(award.award_date)} />
             <DetailRow label="Restriction" value={award.restriction ?? '—'} />
-            <DetailRow label="Agreement signed" value={formatDate(award.agreement_signed_date)} />
+            <div>
+              <dt className="text-xs text-gray-500 uppercase tracking-wide">Agreement signed</dt>
+              <dd className="mt-0.5">
+                <form
+                  action={setAwardAgreementDate.bind(null, award.id)}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="date"
+                    name="agreement_signed_date"
+                    defaultValue={award.agreement_signed_date ?? ''}
+                    className="input py-1 text-sm w-40"
+                  />
+                  <SubmitButton
+                    pendingLabel="Saving…"
+                    className="text-xs font-medium text-gray-500 hover:text-gray-900"
+                  >
+                    Save
+                  </SubmitButton>
+                </form>
+                {!award.agreement_signed_date && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Required before disbursements can be paid.
+                  </p>
+                )}
+              </dd>
+            </div>
             {proposal && (
               <DetailRow
                 label="From proposal"

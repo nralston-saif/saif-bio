@@ -10,7 +10,7 @@ import type {
   LetterStatus,
   StockContributionDetail,
 } from '@/lib/supabase/types/database'
-import { METHOD_LABELS } from './methods'
+import { METHOD_LABELS, VEHICLE_BADGES } from './methods'
 
 function RestrictionBadge({ restriction }: { restriction: string }) {
   const restricted = restriction === 'donor_restricted'
@@ -155,6 +155,9 @@ export default async function ContributionsPage() {
                         </span>
                       ) : (
                         METHOD_LABELS[c.method]
+                      )}
+                      {c.vehicle !== 'direct' && (
+                        <span className="text-xs text-gray-400"> · {VEHICLE_BADGES[c.vehicle]}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

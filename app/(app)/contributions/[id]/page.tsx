@@ -16,7 +16,7 @@ import {
   computeStockValuation,
   getLatestCachedSecurityPrice,
 } from '@/lib/market/security-prices'
-import { METHOD_LABELS } from '../methods'
+import { METHOD_LABELS, VEHICLE_LABELS, VEHICLE_SPONSOR_LABELS } from '../methods'
 import ContributionForm from '../new/ContributionForm'
 import LetterPanel from './LetterPanel'
 
@@ -137,6 +137,14 @@ export default async function ContributionDetailPage({
               </DetailRow>
               <DetailRow label="Received date">{formatDate(contribution.received_date)}</DetailRow>
               <DetailRow label="Method">{METHOD_LABELS[contribution.method]}</DetailRow>
+              <DetailRow label="Giving vehicle">{VEHICLE_LABELS[contribution.vehicle]}</DetailRow>
+              {contribution.vehicle_sponsor_name && (
+                <DetailRow
+                  label={VEHICLE_SPONSOR_LABELS[contribution.vehicle] ?? 'Sponsoring organization'}
+                >
+                  {contribution.vehicle_sponsor_name}
+                </DetailRow>
+              )}
               {contribution.method === 'in_kind' && (
                 <DetailRow label="In-kind description">
                   {contribution.in_kind_description ?? '—'}
